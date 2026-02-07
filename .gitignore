@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# PyInstaller
+*.spec
+
+# Game Specific
+game_events.log
+savegame.json
+2048_Accesible_vFinal.zip
+.2048_sounds/
+
+# OS
+.DS_Store
+Thumbs.db

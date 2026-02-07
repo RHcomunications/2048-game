@@ -1,0 +1,286 @@
+import os
+import math
+import struct
+import random
+import logging
+import winsound
+import ctypes
+import wx
+import tempfile
+import shutil
+
+class SoundManager:
+    def __init__(self):
+        # Use a hidden temp dir in system's temp location
+        system_temp = tempfile.gettempdir()
+        self.temp_dir = os.path.join(system_temp, "2048_Accesible_Sfx")
+        if not os.path.exists(self.temp_dir):
+            os.makedirs(self.temp_dir)
+            
+        self.sounds = {}
+        self.dynamic_counter = 0 # Counter for rotating dynamic sound files
+        logging.info(f"SoundManager initialized. Temp dir: {self.temp_dir}")
+        
+        # Cleanup old visible folder if it exists (~/.2048_sounds)
+        self._cleanup_old_folder()
+        
+        # Test System Audio
+        try:
+            logging.info("Testing system audio with MessageBeep.")
+            try:
+                winsound.MessageBeep(winsound.MB_OK)
+            except AttributeError:
+                 # winsound might be limited on some envs
+                 pass
+        except Exception as e:
+            logging.error(f"System Audio Test Failed: {e}")
+
+        try:
+            self._pregenerate_defaults()
+        except Exception as e:
+            logging.error(f"Pregeneration failed: {e}")
+            # wx.MessageBox might not be safe here if App not init, but usually ok
+            # wx.MessageBox(f"Error generando sonidos: {e}", "Error de Audio")
+
+    def _cleanup_old_folder(self):
+        old_path = os.path.join(os.path.expanduser("~"), ".2048_sounds")
+        if os.path.exists(old_path):
+            try:
+                # We use shutil.rmtree to remove the folder and its contents
+                # if it's not currently locked (unlikely on startup)
+                shutil.rmtree(old_path, ignore_errors=True)
+                logging.info(f"Cleaned up legacy sound folder: {old_path}")
+            except Exception as e:
+                logging.warning(f"Could not remove legacy folder {old_path}: {e}")
+
+    def _generate_wave(self, freq_start, freq_end, duration, vol=0.5, pan_start=0.0, pan_end=None):
+        if pan_end is None: pan_end = pan_start
+        
+        sample_rate = 44100
+        n_samples = int(sample_rate * duration)
+        
+        data_pcm = bytearray()
+        
+        phase = 0.0
+        
+        # Parámetros de Envolvente (ADSR simple solo con Decay)
+        # Ataque: muy rápido (0.005s) para "golpe" metálico
+        # Decay: exponencial largo para "ringing"
+        attack_samples = int(sample_rate * 0.005)
+        
+        for i in range(n_samples):
+            progress = float(i) / n_samples
+            
+            # Simple Linear Glide
+            f_current = freq_start + (freq_end - freq_start) * progress
+            
+            phase += 2 * math.pi * f_current / sample_rate
+            
+            # Use new tile helper
+            val = self._compute_tile_sample(phase, f_current, sample_rate, float(i)/sample_rate)
+            
+            # Simple Exponential Decay
+            env = 1.0
+            if i < attack_samples:
+                env = i / attack_samples
+            else:
+                # Faster Decay for "Thud" / "Click" (Tile aesthetic)
+                decay_progress = (i - attack_samples) / (n_samples - attack_samples)
+                env = math.exp(-8.0 * decay_progress) 
+            
+            # Paneo
+            current_pan = pan_start + (pan_end - pan_start) * progress
+            
+            left_factor = max(0.0, min(1.0, 0.5 * (1.0 - current_pan) * 2.0))
+            right_factor = max(0.0, min(1.0, 0.5 * (1.0 + current_pan) * 2.0))
+            
+            # Vol (Boosted slightly)
+            base_sample = int(val * 32700.0 * vol * env)
+            
+            left_sample = int(base_sample * left_factor)
+            right_sample = int(base_sample * right_factor)
+            
+            data_pcm.extend(struct.pack('<h', left_sample))
+            data_pcm.extend(struct.pack('<h', right_sample))
+            
+        return self._wrap_wav_header(data_pcm)
+
+    def _wrap_wav_header(self, pcm_data):
+        header = struct.pack('<4sI4s', b'RIFF', 36 + len(pcm_data), b'WAVE')
+        fmt = struct.pack('<4sIHHIIHH', b'fmt ', 16, 1, 2, 44100, 44100 * 4, 4, 16)
+        data_hdr = struct.pack('<4sI', b'data', len(pcm_data))
+        return header + fmt + data_hdr + pcm_data
+
+    def _save_temp_sound(self, name, data):
+        path = os.path.join(self.temp_dir, f"{name}.wav")
+        try:
+            with open(path, "wb") as f:
+                f.write(data)
+            logging.info(f"Saved sound {name} to {path} ({len(data)} bytes)")
+        except Exception as e:
+            logging.error(f"Failed to save {name}: {e}")
+        return path
+
+    def _pregenerate_defaults(self):
+        # Safe Defaults
+        data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=0.0)
+        self.sounds['MOVE'] = self._save_temp_sound('MOVE', data)
+        
+        data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=-0.8)
+        self.sounds['MOVE_L'] = self._save_temp_sound('MOVE_L', data)
+        
+        data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=0.8)
+        self.sounds['MOVE_R'] = self._save_temp_sound('MOVE_R', data)
+        
+        data = self._generate_wave(100, 50, 0.3, 0.8, pan_start=0.0)
+        self.sounds['INVALID'] = self._save_temp_sound('INVALID', data)
+        
+        data = self._generate_wave(400, 100, 0.5, 0.8, pan_start=0.0)
+        self.sounds['GAMEOVER'] = self._save_temp_sound('GAMEOVER', data)
+        
+        # UI Sounds
+        # Undo: Reverse sweep / Rewind
+        data = self._generate_wave(150, 50, 0.2, 0.4, pan_start=0.0)
+        self.sounds['UNDO'] = self._save_temp_sound('UNDO', data)
+        
+        # Toggle ON (High Blip)
+        data = self._generate_wave(880, 880, 0.05, 0.3)
+        self.sounds['TOGGLE_ON'] = self._save_temp_sound('TOGGLE_ON', data)
+        
+        # Toggle OFF (Low Blip)
+        data = self._generate_wave(440, 440, 0.05, 0.3)
+        self.sounds['TOGGLE_OFF'] = self._save_temp_sound('TOGGLE_OFF', data)
+        
+        # High Score Fanfare (Major Triad Arpeggio)
+        fanfare_notes = [523.25, 659.25, 783.99, 1046.50]
+        data = self._generate_sequence(fanfare_notes, 0.1, 0.4)
+        self.sounds['HIGHSCORE'] = self._save_temp_sound('HIGHSCORE', data)
+
+    def play(self, name_or_data):
+        filepath = None
+        
+        if isinstance(name_or_data, str):
+            filepath = self.sounds.get(name_or_data)
+        elif isinstance(name_or_data, bytes):
+            # Dynamic sound (raw bytes) - Save to a rotating temp file
+            try:
+                filename = f"dynamic_{self.dynamic_counter % 10}.wav"
+                self.dynamic_counter += 1
+                filepath = os.path.join(self.temp_dir, filename)
+                with open(filepath, "wb") as f:
+                    f.write(name_or_data)
+            except Exception as e:
+                logging.error(f"Failed to save dynamic sound: {e}")
+                return
+
+        if filepath and os.path.exists(filepath):
+            try:
+                # Método 2: ctypes winmm (Low Level Fallback)
+                winmm = ctypes.windll.winmm
+                # SND_ASYNC=1, SND_FILENAME=0x20000, SND_NODEFAULT=2
+                flags = 0x0001 | 0x00020000 | 0x0002
+                winmm.PlaySoundW(filepath, 0, flags)
+            except Exception as e:
+                logging.error(f"Error playing sound {filepath}: {e}")
+        else:
+            if isinstance(name_or_data, str):
+                logging.warning(f"Sound not found: {name_or_data}")
+
+    def get_merge_sound(self, start_pan, end_pan, intensity=1):
+        # Distinct Sound: Higher pitch sweep
+        # Intensity (moved_count) controls duration and sweep range
+        
+        duration = 0.15 + (min(intensity, 20) * 0.02)
+        
+        base_step = 60.0 
+        start_freq = 250.0 + ((intensity - 1) * base_step)
+        
+        sweep_range = 150.0 
+        freq_end = start_freq + sweep_range
+        
+        return self._generate_wave(start_freq, freq_end, duration, 0.8, pan_start=start_pan, pan_end=end_pan)
+
+    def _compute_tile_sample(self, phase, freq, sample_rate, time_t):
+        val = 0.0
+        
+        # 1. Body (Wood/Stone block)
+        val += 1.0 * math.sin(phase)
+        # Hollow Clack (Odd harmonics)
+        val += 0.5 * math.sin(phase * 3.0) 
+        val += 0.25 * math.sin(phase * 5.0)
+        # Inharmonic "Material" resonance
+        val += 0.1 * math.sin(phase * 2.4)
+        
+        # 2. Noise Click (Impact)
+        if time_t < 0.01:
+            noise = (random.random() - 0.5) * 2.0
+            noise_env = 1.0 - (time_t / 0.01)
+            val += noise * 0.8 * noise_env
+            
+        return val / 2.0 
+
+    def _generate_sequence(self, freqs, note_duration, vol=0.5):
+        # Generar secuencia de notas (arpegio)
+        final_pcm = bytearray()
+        sample_rate = 44100
+        n_samples_note = int(sample_rate * note_duration)
+        
+        attack_samples = int(sample_rate * 0.005)
+
+        for f in freqs:
+            phase = 0.0
+            
+            for i in range(n_samples_note):
+                phase += 2 * math.pi * f / sample_rate
+                
+                val = self._compute_tile_sample(phase, f, sample_rate, float(i)/sample_rate)
+                
+                env = 1.0
+                if i < attack_samples:
+                    env = i / attack_samples
+                else:
+                    decay_prog = (i - attack_samples) / (n_samples_note - attack_samples)
+                    env = math.exp(-2.0 * decay_prog) 
+                    env = env * 0.8 + 0.2 * (1.0 - decay_prog)
+                
+                sample_val = int(val * 32767.0 * vol * env)
+                
+                final_pcm.extend(struct.pack('<h', sample_val))
+                final_pcm.extend(struct.pack('<h', sample_val))
+                
+        return self._wrap_wav_header(final_pcm)
+
+    def get_record_sound(self, value):
+        # Chain sound: Ascending arpeggio
+        if value < 8: return None
+        
+        log_val = int(math.log2(value))
+        
+        num_notes = max(2, log_val - 2)
+        
+        start_freq = 220.0 + (log_val * 20) 
+        
+        freqs = []
+        current_f = start_freq
+        
+        for i in range(num_notes):
+            freqs.append(current_f)
+            current_f *= 1.25 # Major Thirds
+            
+        note_dur = 0.08 
+        
+        return self._generate_sequence(freqs, note_dur, 0.4)
+
+    def get_move_sound(self, direction, intensity):
+        # Reverted to simple "zip" sound.
+        base_freq = 150 + (min(intensity, 10) * 10)
+        
+        if direction == 'IZQUIERDA':
+            return self._generate_wave(base_freq, base_freq + 100, 0.15, 0.4, pan_start=0.0, pan_end=-0.8)
+        elif direction == 'DERECHA':
+            return self._generate_wave(base_freq, base_freq + 100, 0.15, 0.4, pan_start=0.0, pan_end=0.8)
+        elif direction == 'ARRIBA':
+            return self._generate_wave(base_freq, base_freq + 150, 0.15, 0.4, pan_start=0.0, pan_end=0.0)
+        elif direction == 'ABAJO':
+            return self._generate_wave(base_freq + 150, base_freq, 0.15, 0.4, pan_start=0.0, pan_end=0.0)
+        return None
