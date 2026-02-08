@@ -15,12 +15,12 @@ class Logica2048:
         self.puntuacion = 0
         self.max_ficha = 0
         self.narrativa = []
-        self.ultimo_evento = None # 'MOVE', 'MERGE', None
-        self.merge_info = None # (start_pan, end_pan) or None
+        self.ultimo_evento = "" # 'MOVE', 'MERGE', ""
+        self.merge_info = (0.0, 0.0, 0) # (start_pan, end_pan, val)
         self.moved_count = 0
         self.merge_count = 0 
         self._temp_merge_val = 0
-        self._temp_merge_dist = 0
+        self._temp_merge_dist = 0.0
         
         # High Score Handling
         self.high_score = 0
@@ -152,15 +152,18 @@ class Logica2048:
             else:
                 i += 1
                 
-        # Fill with zeros and count "moves"
-        # Actual move tracking is hard in 1D abstraction without original indices.
-        # Approximation: if len(original_nonzero) != len(linea) or positions changed...
-        # Let's just trust 'cambio' flag for general move sound.
+        moves_made = 0
+        for i, val in enumerate(linea):
+            if val != 0:
+                # Find its new index in nueva_linea (rough estimate for intensity)
+                # For simplicity, we just count non-zero tiles as "intensity contributors"
+                moves_made += 1
         
-        moves_made = len(linea) - linea.count(0) # Logic specific to sound intensity? 
-        # Actually proper implementation of sound intensity requires verifying how many actually shifted.
-        
-        return nueva_linea + [0] * (len(linea) - len(nueva_linea)), fusiones, pts, 1 
+        # If the line stayed the same, moves_made should be 0 for sound purposes
+        if linea == nueva_linea + [0] * (len(linea) - len(nueva_linea)) and not fusiones:
+            moves_made = 0
+
+        return nueva_linea + [0] * (len(linea) - len(nueva_linea)), fusiones, pts, moves_made
 
     def _map_pan(self, idx):
         # Map index 0..3 to -1.0 .. 1.0
@@ -175,7 +178,7 @@ class Logica2048:
         
         dist = abs(end - start)
         
-        if self.merge_info is None:
+        if self.merge_info == (0.0, 0.0, 0):
             self.merge_info = (start, end, val)
             self._temp_merge_val = val
         else:
@@ -184,13 +187,12 @@ class Logica2048:
                 self._temp_merge_val = val
             elif val == self._temp_merge_val:
                  # Tie breaker: Distance
-                 if len(self.merge_info) == 3:
-                     curr_dist = abs(self.merge_info[1] - self.merge_info[0])
-                 else:
-                     curr_dist = 0
+                 curr_dist = 0
+                 if isinstance(self.merge_info, tuple) and len(self.merge_info) >= 2:
+                      curr_dist = abs(self.merge_info[1] - self.merge_info[0])
                      
                  if dist > curr_dist:
-                     self.merge_info = (start, end, val)
+                      self.merge_info = (start, end, val)
 
     def mover(self, direccion):
         # Save state for Undo
@@ -204,9 +206,9 @@ class Logica2048:
         
         self.merge_count = 0
         self.moved_count = 0 
-        self.merge_info = None
+        self.merge_info = (0.0, 0.0, 0)
         self._temp_merge_val = 0
-        self._temp_merge_dist = 0
+        self._temp_merge_dist = 0.0
         
         # Lógica EXPLÍCITA por dirección (Simplificada para brevity en extracción)
         # Assuming original logic structure...
@@ -341,7 +343,7 @@ class Logica2048:
             self.guardar_juego_estado()
             return True
         else:
-            self.ultimo_evento = None
+            self.ultimo_evento = ""
             return False
 
     def deshacer(self):
