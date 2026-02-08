@@ -300,7 +300,7 @@ class Logica2048:
             self.tablero = nuevo_tablero
             # Add new tile and narrative
             new_tile = self.agregar_ficha_random()
-            if new_tile:
+            if new_tile and self.verbosidad > 0:
                 r, c, val = new_tile
                 coord = coord_nombre(r, c)
                 msgs_fusiones.append(f"Se añadió {val} a {coord}")
@@ -310,10 +310,34 @@ class Logica2048:
             # Events
             if self.merge_count > 0:
                 self.ultimo_evento = 'MERGE'
+                # Consolidate narratives: "3 fusionados en 4", etc.
+                # Actually, simpler: count by value
+                counts = {}
+                for m in msgs_fusiones:
+                    if "fusionó" in m:
+                        val = m.split(" ")[0]
+                        counts[val] = counts.get(val, 0) + 1
+                
+                final_narrative = []
+                for val, count in counts.items():
+                    if count > 1:
+                        final_narrative.append(f"{count} fichas {val} fusionadas")
+                    else:
+                        # Find the original coordinate message for the single merge
+                        for m in msgs_fusiones:
+                            if m.startswith(f"{val} "):
+                                final_narrative.append(m)
+                                break
+                
+                # Add spawn info
+                for m in msgs_fusiones:
+                    if "añadió" in m:
+                        final_narrative.append(m)
+                
+                self.narrativa = final_narrative
             else:
                 self.ultimo_evento = 'MOVE'
-                
-            self.narrativa = msgs_fusiones
+                self.narrativa = msgs_fusiones # Usually just spawn info or empty
             self.guardar_juego_estado()
             return True
         else:

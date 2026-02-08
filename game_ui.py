@@ -81,6 +81,8 @@ class VentanaJuego(wx.Frame):
         print(f"Loaded Config: Verbosity={self.verbosidad}, HighContrast={self.alto_contraste}")
         
         self.historial_anuncios = []
+        self.wall_hit_count = 0
+        self.last_wall_hit_key = None
         
         # Logging Setup
         self._setup_logging()
@@ -347,26 +349,15 @@ class VentanaJuego(wx.Frame):
                 if self.juego.mover(direccion):
                     self.sounds.play('MOVE')
                     
-                    # Narrative Handling
-                    prefix = ""
-                    if self.verbosidad == 2: # High
-                        dirs = {"ARRIBA": "Arriba", "ABAJO": "Abajo", "IZQUIERDA": "Izquierda", "DERECHA": "Derecha"}
-                        prefix = f"Movimiento hacia {dirs.get(direccion, direccion)}. "
-                    
+                    # Narrative Handling: Simplified for Universal Accessibility
                     narrativa = ". ".join(self.juego.narrativa)
-                    if narrativa:
-                        self.mensaje_evento_pendiente = prefix + narrativa
-                    elif prefix:
-                        self.mensaje_evento_pendiente = prefix
+                    self.mensaje_evento_pendiente = narrativa
                     
-                    # Info in High Verbosity (Score/Free cells)
-                    if self.verbosidad == 2:
+                    # Info ONLY in High Verbosity (and only if something happened)
+                    if self.verbosidad == 2 and narrativa:
                         libres = len(self.juego.celdas_libres())
                         info = f"Puntuación: {self.juego.puntuacion}. {libres} casillas libres."
-                        if self.mensaje_evento_pendiente:
-                             self.mensaje_evento_pendiente += f". {info}"
-                        else:
-                             self.mensaje_evento_pendiente = info
+                        self.mensaje_evento_pendiente += f". {info}"
                     
                     self.actualizar_tablero()
                     
@@ -389,7 +380,7 @@ class VentanaJuego(wx.Frame):
                 elif cmd == 'DERECHA': dc = 1
                 
                 self.log_event("NAVIGATE", f"Dir: {dr}, {dc}")
-                self.mover_foco(dr, dc)
+                self.mover_foco(dr, dc, key_code=code)
                 
         else:
             event.Skip()
@@ -406,14 +397,28 @@ class VentanaJuego(wx.Frame):
                 # (native focus event already reads the cell)
             self._actualizar_foco_visual()
 
-    def mover_foco(self, dr, dc):
+    def mover_foco(self, dr, dc, key_code=None):
         r, c = self.foco_actual
         nr, nc = r + dr, c + dc
         if 0 <= nr < self.tamano and 0 <= nc < self.tamano:
+            self.wall_hit_count = 0
+            self.last_wall_hit_key = None
             self.fijar_foco(nr, nc)
         else:
-            # Wall hit: announce current cell again
-            self.anunciar_en_foco()
+            # Wall hit logic: Discrete feedback
+            if self.last_wall_hit_key == key_code:
+                self.wall_hit_count += 1
+            else:
+                self.wall_hit_count = 1
+                self.last_wall_hit_key = key_code
+            
+            if self.wall_hit_count >= 2:
+                self.anunciar("Borde")
+                self.wall_hit_count = 0
+            else:
+                # First hit: silent (directional audio is the goal, but we use silence for brevity)
+                # Or we can beep. Let's just do nothing on first hit to be "non-repetitive".
+                pass
 
     def _actualizar_foco_visual(self):
          # Iterate all and set focus flag
