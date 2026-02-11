@@ -22,19 +22,20 @@ Usa estas teclas cuando quieras explorar el estado de las celdas sin realizar mo
 - **SHIFT + FLECHAS**: Desplaza todas las fichas en la dirección elegida para realizar fusiones.
 - **Sonidos 2D/Stereo**: Escucharás sonidos que se desplazan de izquierda a derecha (o viceversa) indicando la dirección del movimiento aplicado.
 
-### Teclas Rápidas de Información
-- **S**: Escuchar tu **Puntuación** actual (sin Ctrl).
-- **Ctrl + S**: **Guardar** la partida manualmente.
-- **E**: Escuchar el **Estado** general (número de casillas libres y ficha máxima alcanzada).
+### Teclas de Información Técnica e Inteligencia
+- **I**: Escuchar el **Resumen de Estado** (Puntaje, Ficha Máxima y Celdar Libres).
+- **H**: Obtener una **Sugerencia (Hint)** sobre el mejor movimiento próximo.
+- **L**: Escuchar el **Historial de anuncios** (últimos 20 eventos narrados).
 - **V**: Cambiar el nivel de **Verbosidad** (Bajo, Normal, Alto).
-- **H**: Escuchar el **Historial de anuncios** (últimos 20 eventos).
+- **S / E**: Información rápida de **Puntaje** (S) o **Casillas Libres** (E).
 
 ### Gestión de Partida
 - **F5**: Alternar el modo de **Alto Contraste** visual.
 - **Ctrl + Z**: **Deshacer** el último movimiento.
 - **Ctrl + R**: **Reiniciar** una partida nueva.
-- **F1**: Mostrar la **Ayuda** con todos los atajos.
-- **ESC**: Salir del juego (se guarda automáticamente).
+- **Ctrl + S**: **Guardar** la partida manualmente.
+- **F1**: Mostrar la **Ayuda** detallada.
+- **ESC**: Salir del juego (se guarda automáticamente de forma segura).
 
 ## 📝 Notas Técnicas
 - **Guardado Automático**: Tu progreso se guarda en el archivo `savegame.json`. Si pierdes (Game Over), el archivo se borrará para empezar de cero.
