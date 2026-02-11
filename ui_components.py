@@ -4,10 +4,7 @@ import logging
 
 import wx
 
-# Constantes Accesibilidad Windows
-EVENT_OBJECT_NAMECHANGE = 0x800C
-OBJID_CLIENT = -4  # 0xFFFFFFFC as signed long
-CHILDID_SELF = 0
+from constants import EVENT_OBJECT_NAMECHANGE, OBJID_CLIENT, CHILDID_SELF
 
 user32 = ctypes.windll.user32
 # Define signature to avoid unwanted 64-bit expansion of negative args

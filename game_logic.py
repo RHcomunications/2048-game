@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import random
+from constants import ARCHIVO_GUARDADO
 
 def coord_nombre(r, c):
     # e.g., A1, B3
@@ -30,7 +31,7 @@ class Logica2048:
         self.new_record = False # Flag for new max tile
         self.ganado = False # Si llegó a 2048
         self.victoria_anunciada = False # Para no repetir el mensaje
-        self.ARCHIVO_GUARDADO = "savegame.json"
+        self.ARCHIVO_GUARDADO = ARCHIVO_GUARDADO
         
         # Accessibility Config
         self.verbosidad = 1 # 0: Brief, 1: Normal, 2: Verbose
