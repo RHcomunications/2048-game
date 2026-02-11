@@ -528,7 +528,7 @@ class VentanaJuego(wx.Frame):
         if not self.historial_anuncios:
              self.anunciar("Historial vacío")
              return
-        ultimos = self.historial_anuncios[-10:]
+        ultimos = self.historial_anuncios[-20:]
         txt = "Historial: " + ". ".join(ultimos)
         self.anunciar(txt)
 

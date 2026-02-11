@@ -23,16 +23,16 @@ Usa estas teclas cuando quieras explorar el estado de las celdas sin realizar mo
 - **Sonidos 2D/Stereo**: Escucharás sonidos que se desplazan de izquierda a derecha (o viceversa) indicando la dirección del movimiento aplicado.
 
 ### Teclas Rápidas de Información
-- **S**: Escuchar tu **Puntuación** actual.
+- **S**: Escuchar tu **Puntuación** actual (sin Ctrl).
+- **Ctrl + S**: **Guardar** la partida manualmente.
 - **E**: Escuchar el **Estado** general (número de casillas libres y ficha máxima alcanzada).
-- **V**: Cambiar el nivel de **Verbosidad** (Bajo, Normal, Alto) para ajustar cuánta información te da el juego.
-- **H**: Escuchar el **Historial de anuncios** (los últimos 20 eventos importantes).
+- **V**: Cambiar el nivel de **Verbosidad** (Bajo, Normal, Alto).
+- **H**: Escuchar el **Historial de anuncios** (últimos 20 eventos).
 
 ### Gestión de Partida
 - **F5**: Alternar el modo de **Alto Contraste** visual.
 - **Ctrl + Z**: **Deshacer** el último movimiento.
 - **Ctrl + R**: **Reiniciar** una partida nueva.
-- **Ctrl + S**: **Guardar** la partida manualmente.
 - **F1**: Mostrar la **Ayuda** con todos los atajos.
 - **ESC**: Salir del juego (se guarda automáticamente).
 
