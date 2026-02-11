@@ -13,6 +13,10 @@ def coord_nombre(r, c):
     return f"{fila}{col}"
 
 class Logica2048:
+    """
+    Core engine for the 2048 game logic.
+    Handles board state, move calculations, score, and undo history.
+    """
     def __init__(self, tamano: int = 4):
         self.tamano: int = tamano
         self.tablero: List[List[int]] = []
@@ -156,7 +160,17 @@ class Logica2048:
         return [(r, c) for r in range(self.tamano) for c in range(self.tamano)
                 if self.tablero[r][c] == 0]
 
-    def procesar_linea(self, linea):
+    def procesar_linea(self, linea: List[int]) -> Tuple[List[int], List[Tuple[int, int, int]], int, int]:
+        """
+        Processes a single row or column for movement and merging.
+        
+        Returns:
+            Tuple containing:
+            - The new line (list of ints)
+            - List of fusion details (value, destination_index, source_index)
+            - Total points gained
+            - Total count of shifted tiles
+        """
         nueva_linea = [val for val in linea if val != 0]
         pts = 0
         fusiones = [] # List of tuples: (value, dest_idx, src_idx_relative_to_compressed_but_we_need_absolute)

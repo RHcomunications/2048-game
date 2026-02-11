@@ -24,7 +24,12 @@ class AccessibleCustom(wx.Accessible):
         return wx.ACC_FALSE, ""
 
 class Celda(wx.Panel):
+    """
+    Accessible UI component representing a single tile on the 2048 board.
+    Handles custom painting with shadows, focus rings, and WinAPI accessibility events.
+    """
     def __init__(self, parent, size, r, c, config):
+        """Initializes the cell with position and color configuration."""
         super().__init__(parent, size=(size, size))
         self.r = r
         self.c = c

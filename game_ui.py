@@ -12,7 +12,12 @@ from constants import (
 
 
 class VentanaJuego(wx.Frame):
+    """
+    Main application window for the 2048 game.
+    Manages the UI, keyboard events, and accessibility feedback.
+    """
     def __init__(self, parent, title):
+        """Initializes the game window and core components."""
         super(VentanaJuego, self).__init__(parent, title=title, size=(700, 800))
         
         # Sonidos
@@ -537,6 +542,7 @@ class VentanaJuego(wx.Frame):
         self.anunciar(txt)
 
     def mostrar_ayuda(self):
+        """Displays a help dialog with keyboard shortcuts."""
         msg = """Atajos de Teclado:
 Flechas: Navegar por el tablero
 Shift + Flechas: Mover fichas
@@ -547,9 +553,12 @@ Ctrl + Z: Deshacer movimiento
 F5: Alto Contraste
 F1: Ayuda
 V: Cambiar Verbosidad
-H: Historial de eventos
+I: Resumen de estado
+H: Sugerencia de movimiento (Hint)
+L: Historial de anuncios
+S / E: Info rápida (Puntos / Libres)
 Ctrl + S: Guardar
-Ctrl + R: Reiniciar"""
+Ctrl + R: Reiniciar / Nuevo Juego"""
         wx.MessageBox(msg, "Ayuda 2048", wx.OK | wx.ICON_INFORMATION)
 
     def anunciar(self, mensaje):

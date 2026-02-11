@@ -9,7 +9,12 @@ import tempfile
 import shutil
 
 class SoundManager:
+    """
+    Manages game audio effects, including dynamic wave generation and playback.
+    Supports stereo panning, frequency sweeps, and in-memory audio buffering.
+    """
     def __init__(self):
+        """Initializes the SoundManager, sets up temp directories, and pre-generates sounds."""
         # Use a hidden temp dir in system's temp location
         system_temp = tempfile.gettempdir()
         self.temp_dir = os.path.join(system_temp, "2048_Accesible_Sfx")
