@@ -54,6 +54,7 @@ class SoundManager:
                 logging.warning(f"Could not remove legacy folder {old_path}: {e}")
 
     def _generate_wave(self, freq_start, freq_end, duration, vol=0.5, pan_start=0.0, pan_end=None):
+        """Genera datos WAV estéreo con barrido de frecuencia y paneo."""
         if pan_end is None: pan_end = pan_start
         
         sample_rate = 44100
@@ -97,8 +98,8 @@ class SoundManager:
             # Vol (Boosted slightly)
             base_sample = int(val * 32700.0 * vol * env)
             
-            left_sample = int(base_sample * left_factor)
-            right_sample = int(base_sample * right_factor)
+            left_sample = max(-32767, min(32767, int(base_sample * left_factor)))
+            right_sample = max(-32767, min(32767, int(base_sample * right_factor)))
             
             data_pcm.extend(struct.pack('<h', left_sample))
             data_pcm.extend(struct.pack('<h', right_sample))
@@ -157,6 +158,7 @@ class SoundManager:
         self.sounds['HIGHSCORE'] = self._save_temp_sound('HIGHSCORE', data)
 
     def play(self, name_or_data):
+        """Reproduce un sonido por nombre predefinido o datos WAV crudos."""
         filepath = None
         
         if isinstance(name_or_data, str):
@@ -175,11 +177,17 @@ class SoundManager:
 
         if filepath and os.path.exists(filepath):
             try:
-                # Método 2: ctypes winmm (Low Level Fallback)
+                # Método principal: ctypes winmm (Windows)
                 winmm = ctypes.windll.winmm
                 # SND_ASYNC=1, SND_FILENAME=0x20000, SND_NODEFAULT=2
                 flags = 0x0001 | 0x00020000 | 0x0002
                 winmm.PlaySoundW(filepath, 0, flags)
+            except AttributeError:
+                # Fallback para entornos sin winmm (e.g. Wine, tests)
+                try:
+                    winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                except Exception as e2:
+                    logging.warning(f"Fallback audio también falló: {e2}")
             except Exception as e:
                 logging.error(f"Error playing sound {filepath}: {e}")
         else:
@@ -187,6 +195,7 @@ class SoundManager:
                 logging.warning(f"Sound not found: {name_or_data}")
 
     def get_merge_sound(self, start_pan, end_pan, intensity=1):
+        """Genera un sonido dinámico de fusión con paneo e intensidad variable."""
         # Distinct Sound: Higher pitch sweep
         # Intensity (moved_count) controls duration and sweep range
         
@@ -243,7 +252,7 @@ class SoundManager:
                     env = math.exp(-2.0 * decay_prog) 
                     env = env * 0.8 + 0.2 * (1.0 - decay_prog)
                 
-                sample_val = int(val * 32767.0 * vol * env)
+                sample_val = max(-32767, min(32767, int(val * 32767.0 * vol * env)))
                 
                 final_pcm.extend(struct.pack('<h', sample_val))
                 final_pcm.extend(struct.pack('<h', sample_val))
@@ -251,8 +260,9 @@ class SoundManager:
         return self._wrap_wav_header(final_pcm)
 
     def get_record_sound(self, value):
-        # Chain sound: Ascending arpeggio
-        if value < 8: return None
+        """Genera un arpegio ascendente para celebrar un nuevo récord de ficha."""
+        if value < 8 or value <= 0:
+            return None
         
         log_val = int(math.log2(value))
         
@@ -272,6 +282,7 @@ class SoundManager:
         return self._generate_sequence(freqs, note_dur, 0.4)
 
     def get_move_sound(self, direction, intensity):
+        """Genera un sonido direccional de movimiento."""
         # Reverted to simple "zip" sound.
         base_freq = 150 + (min(intensity, 10) * 10)
         
