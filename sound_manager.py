@@ -251,20 +251,21 @@ class SoundManager:
         
         attack_samples = int(sample_rate * 0.005)
 
-        for f in freqs:
-            phase = 0.0
+        for f_note in freqs:
+            phase: float = 0.0
+            f_val: float = float(f_note)
             
-            for i in range(n_samples_note):
-                phase += 2 * math.pi * f / sample_rate
+            for i_samp in range(n_samples_note):
+                phase = phase + (2.0 * math.pi * f_val / float(sample_rate)) # type: ignore
                 
-                val = self._compute_tile_sample(phase, f, sample_rate, float(i)/sample_rate)
+                val = self._compute_tile_sample(phase, f_val, sample_rate, float(i_samp)/sample_rate)
                 
                 env = 1.0
-                if i < attack_samples:
-                    env = i / max(1, attack_samples)
+                if i_samp < attack_samples:
+                    env = i_samp / max(1, attack_samples)
                 else:
                     decay_div = max(1, n_samples_note - attack_samples)
-                    decay_prog = (i - attack_samples) / decay_div
+                    decay_prog = (i_samp - attack_samples) / decay_div
                     env = math.exp(-2.0 * decay_prog) 
                     env = env * 0.8 + 0.2 * (1.0 - decay_prog)
                 

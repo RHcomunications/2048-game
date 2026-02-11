@@ -69,17 +69,13 @@ class Logica2048:
             'victoria_anunciada': self.victoria_anunciada
         }
 
-    def guardar_ajustes(self):
-        """Guarda configuraciones de usuario de forma independiente."""
-        data = {
+    def guardar_ajustes(self) -> None:
+        """Persiste los ajustes de accesibilidad de forma atómica."""
+        ajustes: Dict[str, Any] = {
             'verbosidad': self.verbosidad,
             'alto_contraste': self.alto_contraste
         }
-        try:
-            with open(self.ARCHIVO_AJUSTES, 'w') as f:
-                json.dump(data, f)
-        except Exception as e:
-            logging.error(f"Error guardando ajustes: {e}")
+        self.guardar_json_atomico(self.ARCHIVO_AJUSTES, ajustes)
 
     def cargar_ajustes(self):
         """Carga configuraciones de usuario desde settings.json."""
