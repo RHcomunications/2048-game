@@ -1,5 +1,7 @@
-import random
+import json
 import logging
+import os
+import random
 
 def coord_nombre(r, c):
     # e.g., A1, B3
@@ -77,8 +79,7 @@ class Logica2048:
         return False
 
     def cargar_juego(self):
-        import json
-        import os
+
         if os.path.exists(self.ARCHIVO_GUARDADO):
             try:
                 with open(self.ARCHIVO_GUARDADO, 'r') as f:
@@ -91,7 +92,7 @@ class Logica2048:
         return False
 
     def guardar_juego_estado(self):
-        import json
+
         data = self.to_dict()
         try:
             with open(self.ARCHIVO_GUARDADO, 'w') as f:
