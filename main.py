@@ -1,3 +1,4 @@
+"""Punto de entrada para 2048 Accesible."""
 import wx
 from game_ui import VentanaJuego
 

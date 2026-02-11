@@ -1,12 +1,14 @@
-import wx
+"""Componentes UI accesibles para el tablero 2048."""
 import ctypes
+import logging
+
+import wx
 
 # Constantes Accesibilidad Windows
 EVENT_OBJECT_NAMECHANGE = 0x800C
-OBJID_CLIENT = -4 # 0xFFFFFFFC as signed long
+OBJID_CLIENT = -4  # 0xFFFFFFFC as signed long
 CHILDID_SELF = 0
 
-import logging
 user32 = ctypes.windll.user32
 # Define signature to avoid unwanted 64-bit expansion of negative args
 user32.NotifyWinEvent.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_long, ctypes.c_long]
