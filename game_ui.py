@@ -1,5 +1,4 @@
 import wx
-import json
 import logging
 import sys
 import os
@@ -49,19 +48,17 @@ COLORES_TEXTO_HC = {
 }
 
 class VentanaJuego(wx.Frame):
-    ARCHIVO_GUARDADO = "savegame.json"
-
     def __init__(self, parent, title):
         super(VentanaJuego, self).__init__(parent, title=title, size=(700, 800))
         
         # Sonidos
         self.sounds = SoundManager()
         
-        # Intentar cargar juego
+        # Intentar cargar juego (Logica2048.iniciar_juego ya intenta cargar)
         self.juego = Logica2048()
-        loaded = self.cargar_juego()
         
-        if loaded:
+        if self.juego.max_ficha > 0:
+            # Se cargó una partida guardada
             self.tamano = self.juego.tamano
         else:
             self.tamano = self.pedir_tamano()
@@ -97,28 +94,9 @@ class VentanaJuego(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.al_cerrar_ventana)
 
     def al_cerrar_ventana(self, event):
-        self.guardar_juego()
+        self.juego.guardar_juego_estado()
+        self.log_event("SAVE", "Juego guardado al cerrar.")
         event.Skip()
-
-    def guardar_juego(self):
-        try:
-            data = self.juego.to_dict()
-            with open(self.ARCHIVO_GUARDADO, "w") as f:
-                json.dump(data, f)
-            self.log_event("SAVE", "Juego guardado.")
-        except Exception as e:
-            self.log_event("ERROR", f"Error al guardar: {e}")
-
-    def cargar_juego(self):
-        if os.path.exists(self.ARCHIVO_GUARDADO):
-            try:
-                with open(self.ARCHIVO_GUARDADO, "r") as f:
-                    data = json.load(f)
-                    self.juego.from_dict(data)
-                return True
-            except Exception as e:
-                logging.error(f"Error al cargar: {e}")
-        return False
 
     def _setup_logging(self):
         try:
@@ -212,7 +190,8 @@ class VentanaJuego(wx.Frame):
         self.log_event("INPUT", f"Tecla: {code}, Shift: {shift}, Ctrl: {control}")
         
         if control and code == ord('S'):
-            self.guardar_juego()
+            self.juego.guardar_juego_estado()
+            self.log_event("SAVE", "Juego guardado manualmente.")
             if self.verbosidad >= 1:
                 self.anunciar("Juego guardado")
             return
@@ -220,8 +199,8 @@ class VentanaJuego(wx.Frame):
         # Reiniciar Juego (Ctrl + R)
         if control and code == ord('R'):
              self.sounds.play('RESTART')
-             if os.path.exists(self.ARCHIVO_GUARDADO):
-                  try: os.remove(self.ARCHIVO_GUARDADO)
+             if os.path.exists(self.juego.ARCHIVO_GUARDADO):
+                  try: os.remove(self.juego.ARCHIVO_GUARDADO)
                   except Exception: pass
              
              nueva_tam = self.pedir_tamano()
@@ -363,8 +342,8 @@ class VentanaJuego(wx.Frame):
                         self.sounds.play('GAMEOVER')
                         self.SetTitle("2048 - Juego Terminado")
                         wx.MessageBox(f"Juego Terminado. Puntos: {self.juego.puntuacion}", "Fin")
-                        if os.path.exists(self.ARCHIVO_GUARDADO):
-                             try: os.remove(self.ARCHIVO_GUARDADO)
+                        if os.path.exists(self.juego.ARCHIVO_GUARDADO):
+                             try: os.remove(self.juego.ARCHIVO_GUARDADO)
                              except Exception: pass
                 else:
                     self.sounds.play('INVALID')
