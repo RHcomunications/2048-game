@@ -173,20 +173,21 @@ class SoundManager:
         
         if isinstance(name_or_data, str):
             filepath = self.sounds.get(name_or_data)
-                # Memory Playback (FAST)
+        elif isinstance(name_or_data, (bytes, bytearray)):
+            # Memory Playback (FAST)
+            try:
+                winmm = ctypes.windll.winmm # type: ignore
+                # SND_ASYNC=1, SND_MEMORY=4, SND_NODEFAULT=2
+                flags = 0x0001 | 0x0004 | 0x0002
+                winmm.PlaySoundW(bytes(name_or_data), 0, flags) # type: ignore
+                return
+            except Exception as e:
+                logging.error(f"Memory playback failed: {e}")
+                # Fallback to winsound
                 try:
-                    winmm = ctypes.windll.winmm # type: ignore
-                    # SND_ASYNC=1, SND_MEMORY=4, SND_NODEFAULT=2
-                    flags = 0x0001 | 0x0004 | 0x0002
-                    winmm.PlaySoundW(bytes(name_or_data), 0, flags) # type: ignore
+                    winsound.PlaySound(name_or_data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT) # type: ignore
                     return
-                except Exception as e:
-                    logging.error(f"Memory playback failed: {e}")
-                    # Fallback to winsound (might not support memory as easily in all versions)
-                    try:
-                        winsound.PlaySound(name_or_data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT) # type: ignore
-                        return
-                    except Exception: pass
+                except Exception: pass
 
         if filepath and os.path.exists(filepath):
             try:
