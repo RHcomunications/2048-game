@@ -130,7 +130,16 @@ class Celda(wx.Panel):
 
         # Text Rendering
         if self.value != 0:
-            font_size = 32 if self.value < 100 else 24 if self.value < 1000 else 18
+            # Dynamic Font Scaling based on cell height
+            base_size = h // 3
+            if self.value < 100:
+                font_size = base_size
+            elif self.value < 1000:
+                font_size = int(base_size * 0.8)
+            else:
+                font_size = int(base_size * 0.6)
+            
+            if font_size < 8: font_size = 8 # Bottom limit
             # Modern system font (Segoe UI on Windows)
             font = wx.Font(font_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, faceName="Segoe UI")
             if not font.IsOk():

@@ -56,6 +56,16 @@ class VentanaJuego(wx.Frame):
         
         # Auto-guardado al cerrar
         self.Bind(wx.EVT_CLOSE, self.al_cerrar_ventana)
+        self.Bind(wx.EVT_SIZE, self.al_redimensionar)
+
+    def al_redimensionar(self, event):
+        self.Layout()
+        # Refresh all cells to trigger on_paint with new sizes
+        if hasattr(self, 'botones'):
+            for fila in self.botones:
+                for celda in fila:
+                    celda.Refresh()
+        event.Skip()
 
     def al_cerrar_ventana(self, event):
         self.juego.guardar_ajustes()
