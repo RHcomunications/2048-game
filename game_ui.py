@@ -73,12 +73,9 @@ class VentanaJuego(wx.Frame):
         self.foco_actual = [0, 0] # r, c
         self.mensaje_evento_pendiente = "" 
         
-        # Accessibility States
-        # Accessibility States
-        # Sync with Logic
+        # Accessibility States — Sync with Logic
         self.verbosidad = getattr(self.juego, 'verbosidad', 1)
         self.alto_contraste = getattr(self.juego, 'alto_contraste', False)
-        print(f"Loaded Config: Verbosity={self.verbosidad}, HighContrast={self.alto_contraste}")
         
         self.historial_anuncios = []
         self.wall_hit_count = 0
@@ -108,9 +105,9 @@ class VentanaJuego(wx.Frame):
             data = self.juego.to_dict()
             with open(self.ARCHIVO_GUARDADO, "w") as f:
                 json.dump(data, f)
-            print("Juego guardado.")
+            self.log_event("SAVE", "Juego guardado.")
         except Exception as e:
-            print(f"Error al guardar: {e}")
+            self.log_event("ERROR", f"Error al guardar: {e}")
 
     def cargar_juego(self):
         if os.path.exists(self.ARCHIVO_GUARDADO):
@@ -120,7 +117,7 @@ class VentanaJuego(wx.Frame):
                     self.juego.from_dict(data)
                 return True
             except Exception as e:
-                print(f"Error al cargar: {e}")
+                logging.error(f"Error al cargar: {e}")
         return False
 
     def _setup_logging(self):
@@ -172,7 +169,8 @@ class VentanaJuego(wx.Frame):
             try:
                 v = int(dlg.GetValue())
                 if 4 <= v <= 10: val = v
-            except: pass
+            except ValueError:
+                pass
         dlg.Destroy()
         return val
 
@@ -224,7 +222,7 @@ class VentanaJuego(wx.Frame):
              self.sounds.play('RESTART')
              if os.path.exists(self.ARCHIVO_GUARDADO):
                   try: os.remove(self.ARCHIVO_GUARDADO)
-                  except: pass
+                  except Exception: pass
              
              nueva_tam = self.pedir_tamano()
              if nueva_tam:
@@ -291,7 +289,7 @@ class VentanaJuego(wx.Frame):
         if code == ord('S'):
             info = f"Puntaje: {self.juego.puntuacion}"
             self.SetTitle(f"2048 - {info}")
-            print(info)
+            self.log_event("INFO", info)
             self.anunciar_en_foco(info, forzar_repeticion=True)
             return
             
@@ -300,7 +298,7 @@ class VentanaJuego(wx.Frame):
             max_f = self.juego.max_ficha
             info = f"{libres_count} casillas libres. Máxima: {max_f}"
             self.SetTitle(f"2048 - {info}")
-            print(info)
+            self.log_event("INFO", info)
             self.anunciar_en_foco(info, forzar_repeticion=True)
             return
 
@@ -367,7 +365,7 @@ class VentanaJuego(wx.Frame):
                         wx.MessageBox(f"Juego Terminado. Puntos: {self.juego.puntuacion}", "Fin")
                         if os.path.exists(self.ARCHIVO_GUARDADO):
                              try: os.remove(self.ARCHIVO_GUARDADO)
-                             except: pass
+                             except Exception: pass
                 else:
                     self.sounds.play('INVALID')
             else:
@@ -459,7 +457,7 @@ class VentanaJuego(wx.Frame):
              self.botones[r][c].actualizar(val, final_name, force_notify=True)
              
         except Exception as e:
-            print(f"Error anunciar foco: {e}")
+            logging.error(f"Error anunciar foco: {e}")
 
     def actualizar_tablero(self, narrativa_inicial=False, forzar_silencio_foco=False):
         # Update Window Title
@@ -520,15 +518,7 @@ class VentanaJuego(wx.Frame):
              r, c = self.foco_actual
              self.botones[r][c].SetFocus()
 
-    def deshacer(self):
-        if self.juego.deshacer():
-            self.sounds.play('UNDO')
-            self.anunciar("Deshacer movimiento")
-            self.cache_valores = {}
-            self.actualizar_tablero()
-        else:
-            self.sounds.play('INVALID')
-            self.anunciar("No se puede deshacer")
+
 
     def toggle_contrast(self):
         self.alto_contraste = not self.alto_contraste
