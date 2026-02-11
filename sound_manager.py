@@ -5,7 +5,6 @@ import random
 import logging
 import winsound
 import ctypes
-import wx
 import tempfile
 import shutil
 
@@ -83,10 +82,11 @@ class SoundManager:
             # Simple Exponential Decay
             env = 1.0
             if i < attack_samples:
-                env = i / attack_samples
+                env = i / max(1, attack_samples)
             else:
                 # Faster Decay for "Thud" / "Click" (Tile aesthetic)
-                decay_progress = (i - attack_samples) / (n_samples - attack_samples)
+                decay_div = max(1, n_samples - attack_samples)
+                decay_progress = (i - attack_samples) / decay_div
                 env = math.exp(-8.0 * decay_progress) 
             
             # Paneo
@@ -156,6 +156,11 @@ class SoundManager:
         fanfare_notes = [523.25, 659.25, 783.99, 1046.50]
         data = self._generate_sequence(fanfare_notes, 0.1, 0.4)
         self.sounds['HIGHSCORE'] = self._save_temp_sound('HIGHSCORE', data)
+        
+        # Restart: Quick major arpeggio
+        restart_freqs = [261.63, 329.63, 392.00, 523.25]
+        data = self._generate_sequence(restart_freqs, 0.05, 0.4)
+        self.sounds['RESTART'] = self._save_temp_sound('RESTART', data)
 
     def play(self, name_or_data):
         """Reproduce un sonido por nombre predefinido o datos WAV crudos."""
@@ -246,9 +251,10 @@ class SoundManager:
                 
                 env = 1.0
                 if i < attack_samples:
-                    env = i / attack_samples
+                    env = i / max(1, attack_samples)
                 else:
-                    decay_prog = (i - attack_samples) / (n_samples_note - attack_samples)
+                    decay_div = max(1, n_samples_note - attack_samples)
+                    decay_prog = (i - attack_samples) / decay_div
                     env = math.exp(-2.0 * decay_prog) 
                     env = env * 0.8 + 0.2 * (1.0 - decay_prog)
                 
