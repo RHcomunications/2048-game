@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import random
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, cast
 from constants import ARCHIVO_GUARDADO, ARCHIVO_AJUSTES
 
 def coord_nombre(r, c):
@@ -171,9 +171,9 @@ class Logica2048:
             - Total points gained
             - Total count of shifted tiles
         """
-        nueva_linea = [val for val in linea if val != 0]
-        pts = 0
-        fusiones = [] # List of tuples: (value, dest_idx, src_idx_relative_to_compressed_but_we_need_absolute)
+        nueva_linea: List[int] = [val for val in linea if val != 0]
+        pts: int = 0
+        fusiones: List[Tuple[int, int, int]] = [] 
         
         # Mapping logic is complex inside loop. 
         # Standard 2048: Leftmost merge first.
@@ -181,20 +181,18 @@ class Logica2048:
         i = 0
         while i < len(nueva_linea) - 1:
             if nueva_linea[i] == nueva_linea[i+1]:
-                val = nueva_linea[i] * 2
+                val: int = nueva_linea[i] * 2
                 nueva_linea[i] = val
                 nueva_linea.pop(i+1)
-                pts += val
-                fusiones.append((val, i, i+1)) # Simplified indices
+                pts += val # type: ignore
+                fusiones.append((val, i, i+1)) 
                 i += 1
             else:
                 i += 1
                 
-        moves_made = 0
+        moves_made: int = 0
         for i, val in enumerate(linea):
             if val != 0:
-                # Find its new index in nueva_linea (rough estimate for intensity)
-                # For simplicity, we just count non-zero tiles as "intensity contributors"
                 moves_made += 1
         
         # If the line stayed the same, moves_made should be 0 for sound purposes
@@ -410,38 +408,39 @@ class Logica2048:
         
         # Simulamos cada movimiento
         for d in direcciones:
-            temp_tablero = [fila[:] for fila in self.tablero]
-            cambio = False
-            puntos_mov = 0
+            temp_tablero: List[List[int]] = [fila[:] for fila in self.tablero]
+            cambio: bool = False
+            puntos_mov: int = 0
             
             # Lógica simplificada de simulación
             if d == 'IZQUIERDA':
                 for r in range(self.tamano):
-                    linea = temp_tablero[r]
-                    procesada, f_list, pts, movs = self.procesar_linea(linea)
-                    if procesada != linea: cambio = True
+                    linea_sim: List[int] = temp_tablero[r]
+                    procesada, f_list, pts, movs = self.procesar_linea(linea_sim)
+                    if procesada != linea_sim: cambio = True
                     temp_tablero[r] = procesada
                     puntos_mov += pts
             elif d == 'DERECHA':
                 for r in range(self.tamano):
-                    linea = list(reversed(temp_tablero[r]))
-                    procesada, f_list, pts, movs = self.procesar_linea(linea)
-                    if list(reversed(procesada)) != temp_tablero[r]: cambio = True
-                    temp_tablero[r] = list(reversed(procesada))
+                    linea_sim = list(reversed(temp_tablero[r]))
+                    procesada, f_list, pts, movs = self.procesar_linea(linea_sim)
+                    res_line: List[int] = list(reversed(procesada))
+                    if res_line != temp_tablero[r]: cambio = True
+                    temp_tablero[r] = res_line
                     puntos_mov += pts
             elif d == 'ARRIBA':
                 for c in range(self.tamano):
-                    col = [temp_tablero[r][c] for r in range(self.tamano)]
-                    procesada, f_list, pts, movs = self.procesar_linea(col)
+                    col_sim: List[int] = [temp_tablero[r][c] for r in range(self.tamano)]
+                    procesada, f_list, pts, movs = self.procesar_linea(col_sim)
                     for r in range(self.tamano):
                         if temp_tablero[r][c] != procesada[r]: cambio = True
                         temp_tablero[r][c] = procesada[r]
                     puntos_mov += pts
             elif d == 'ABAJO':
                 for c in range(self.tamano):
-                    col = list(reversed([temp_tablero[r][c] for r in range(self.tamano)]))
-                    procesada, f_list, pts, movs = self.procesar_linea(col)
-                    procesada_final = list(reversed(procesada))
+                    col_sim = list(reversed([temp_tablero[r][c] for r in range(self.tamano)]))
+                    procesada, f_list, pts, movs = self.procesar_linea(col_sim)
+                    procesada_final: List[int] = list(reversed(procesada))
                     for r in range(self.tamano):
                         if temp_tablero[r][c] != procesada_final[r]: cambio = True
                         temp_tablero[r][c] = procesada_final[r]

@@ -32,7 +32,7 @@ class SoundManager:
         try:
             logging.info("Testing system audio with MessageBeep.")
             try:
-                winsound.MessageBeep(winsound.MB_OK)
+                winsound.MessageBeep(winsound.MB_OK) # type: ignore
             except AttributeError:
                  # winsound might be limited on some envs
                  pass
@@ -173,33 +173,32 @@ class SoundManager:
         
         if isinstance(name_or_data, str):
             filepath = self.sounds.get(name_or_data)
-        elif isinstance(name_or_data, (bytes, bytearray)):
-            # Memory Playback (FAST)
-            try:
-                winmm = ctypes.windll.winmm
-                # SND_ASYNC=1, SND_MEMORY=4, SND_NODEFAULT=2
-                flags = 0x0001 | 0x0004 | 0x0002
-                winmm.PlaySoundW(bytes(name_or_data), 0, flags)
-                return
-            except Exception as e:
-                logging.error(f"Memory playback failed: {e}")
-                # Fallback to winsound (might not support memory as easily in all versions)
+                # Memory Playback (FAST)
                 try:
-                    winsound.PlaySound(name_or_data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                    winmm = ctypes.windll.winmm # type: ignore
+                    # SND_ASYNC=1, SND_MEMORY=4, SND_NODEFAULT=2
+                    flags = 0x0001 | 0x0004 | 0x0002
+                    winmm.PlaySoundW(bytes(name_or_data), 0, flags) # type: ignore
                     return
-                except Exception: pass
+                except Exception as e:
+                    logging.error(f"Memory playback failed: {e}")
+                    # Fallback to winsound (might not support memory as easily in all versions)
+                    try:
+                        winsound.PlaySound(name_or_data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT) # type: ignore
+                        return
+                    except Exception: pass
 
         if filepath and os.path.exists(filepath):
             try:
                 # Método principal: ctypes winmm (Windows)
-                winmm = ctypes.windll.winmm
+                winmm = ctypes.windll.winmm # type: ignore
                 # SND_ASYNC=1, SND_FILENAME=0x20000, SND_NODEFAULT=2
                 flags = 0x0001 | 0x00020000 | 0x0002
-                winmm.PlaySoundW(filepath, 0, flags)
+                winmm.PlaySoundW(filepath, 0, flags) # type: ignore
             except AttributeError:
                 # Fallback para entornos sin winmm (e.g. Wine, tests)
                 try:
-                    winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                    winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT) # type: ignore
                 except Exception as e2:
                     logging.warning(f"Fallback audio también falló: {e2}")
             except Exception as e:
