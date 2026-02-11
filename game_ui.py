@@ -58,8 +58,9 @@ class VentanaJuego(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.al_cerrar_ventana)
 
     def al_cerrar_ventana(self, event):
+        self.juego.guardar_ajustes()
         self.juego.guardar_juego_estado()
-        self.log_event("SAVE", "Juego guardado al cerrar.")
+        self.log_event("SAVE", "Juego y ajustes guardados al cerrar.")
         event.Skip()
 
     def _setup_logging(self):
@@ -488,6 +489,7 @@ class VentanaJuego(wx.Frame):
             self.sounds.play('TOGGLE_OFF')
             
         self.anunciar(f"Alto Contraste {state}")
+        self.juego.guardar_ajustes()
         
         self.cache_valores = {}
         self.Refresh() 
@@ -501,6 +503,7 @@ class VentanaJuego(wx.Frame):
         modes = ["Bajo", "Normal", "Alto"]
         mode = modes[self.verbosidad]
         self.anunciar(f"Verbosidad: {mode}")
+        self.juego.guardar_ajustes()
         # Evitamos que la celda se vuelva a leer justo después del anuncio de verbosidad
         self.mensaje_evento_pendiente = ""
         self.actualizar_tablero(forzar_silencio_foco=True)

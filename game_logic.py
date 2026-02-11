@@ -3,7 +3,7 @@ import logging
 import os
 import random
 from typing import List, Dict, Any, Tuple
-from constants import ARCHIVO_GUARDADO
+from constants import ARCHIVO_GUARDADO, ARCHIVO_AJUSTES
 
 def coord_nombre(r, c):
     # e.g., A1, B3
@@ -33,6 +33,7 @@ class Logica2048:
         self.ganado = False # Si llegó a 2048
         self.victoria_anunciada = False # Para no repetir el mensaje
         self.ARCHIVO_GUARDADO = ARCHIVO_GUARDADO
+        self.ARCHIVO_AJUSTES = ARCHIVO_AJUSTES
         
         # Accessibility Config
         self.verbosidad = 1 # 0: Brief, 1: Normal, 2: Verbose
@@ -41,6 +42,7 @@ class Logica2048:
         # Undo History
         self.history: List[Dict[str, Any]] = []
         
+        self.cargar_ajustes() # Load user preferences before starting logic
         self.iniciar_juego()
 
     def iniciar_juego(self):
@@ -52,17 +54,39 @@ class Logica2048:
         self.agregar_ficha_random()
 
     def to_dict(self):
+        """Convierte el estado esencial de la partida a un diccionario."""
         return {
-            'high_score': self.high_score,
             'tablero': self.tablero,
             'puntuacion': self.puntuacion,
             'max_ficha': self.max_ficha,
-            'history': self.history[-10:],
-            'verbosidad': self.verbosidad,
-            'alto_contraste': self.alto_contraste,
+            'high_score': self.high_score,
+            'history': self.history,
             'ganado': self.ganado,
             'victoria_anunciada': self.victoria_anunciada
         }
+
+    def guardar_ajustes(self):
+        """Guarda configuraciones de usuario de forma independiente."""
+        data = {
+            'verbosidad': self.verbosidad,
+            'alto_contraste': self.alto_contraste
+        }
+        try:
+            with open(self.ARCHIVO_AJUSTES, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logging.error(f"Error guardando ajustes: {e}")
+
+    def cargar_ajustes(self):
+        """Carga configuraciones de usuario desde settings.json."""
+        if os.path.exists(self.ARCHIVO_AJUSTES):
+            try:
+                with open(self.ARCHIVO_AJUSTES, 'r') as f:
+                    data = json.load(f)
+                    self.verbosidad = int(data.get('verbosidad', 1))
+                    self.alto_contraste = bool(data.get('alto_contraste', False))
+            except Exception as e:
+                logging.error(f"Error cargando ajustes: {e}")
 
     def from_dict(self, data):
         """Restaura el estado desde un diccionario deserializado de JSON."""
@@ -79,8 +103,6 @@ class Logica2048:
                   self.puntuacion = int(data.get('puntuacion', 0))
                   self.max_ficha = int(data.get('max_ficha', 0))
                   self.history = data.get('history', [])
-                  self.verbosidad = int(data.get('verbosidad', 1))
-                  self.alto_contraste = bool(data.get('alto_contraste', False))
                   self.ganado = bool(data.get('ganado', False))
                   self.victoria_anunciada = bool(data.get('victoria_anunciada', False))
                   return True

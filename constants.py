@@ -2,6 +2,7 @@
 
 # Game Configuration
 ARCHIVO_GUARDADO = "savegame.json"
+ARCHIVO_AJUSTES = "settings.json"
 VALOR_VICTORIA = 2048
 
 # UI Colors - Standard
