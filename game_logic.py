@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import random
+from typing import List, Dict, Any, Tuple
 from constants import ARCHIVO_GUARDADO
 
 def coord_nombre(r, c):
@@ -12,18 +13,18 @@ def coord_nombre(r, c):
     return f"{fila}{col}"
 
 class Logica2048:
-    def __init__(self, tamano=4):
-        self.tamano = tamano
-        self.tablero = []
-        self.puntuacion = 0
-        self.max_ficha = 0
-        self.narrativa = []
-        self.ultimo_evento = "" # 'MOVE', 'MERGE', ""
-        self.merge_info = (0.0, 0.0, 0) # (start_pan, end_pan, val)
-        self.moved_count = 0
-        self.merge_count = 0 
-        self._temp_merge_val = 0
-        self._temp_merge_dist = 0.0
+    def __init__(self, tamano: int = 4):
+        self.tamano: int = tamano
+        self.tablero: List[List[int]] = []
+        self.puntuacion: int = 0
+        self.max_ficha: int = 0
+        self.narrativa: List[str] = []
+        self.ultimo_evento: str = "" # 'MOVE', 'MERGE', ""
+        self.merge_info: Tuple[float, float, int] = (0.0, 0.0, 0) # (start_pan, end_pan, val)
+        self.moved_count: int = 0
+        self.merge_count: int = 0 
+        self._temp_merge_val: int = 0
+        self._temp_merge_dist: float = 0.0
         
         # High Score Handling
         self.high_score = 0
@@ -38,7 +39,7 @@ class Logica2048:
         self.alto_contraste = False
         
         # Undo History
-        self.history = []
+        self.history: List[Dict[str, Any]] = []
         
         self.iniciar_juego()
 
@@ -232,13 +233,13 @@ class Logica2048:
                 
         elif direccion == 'DERECHA':
             for r in range(self.tamano):
-                linea = nuevo_tablero[r][::-1]
-                procesada, f_list, pts, movs = self.procesar_linea(linea)
-                procesada = procesada[::-1]
+                linea_rev = list(reversed(nuevo_tablero[r]))
+                procesada_rev, f_list, pts, movs = self.procesar_linea(linea_rev)
+                procesada = list(reversed(procesada_rev))
                 if procesada != nuevo_tablero[r]: cambio = True
                 nuevo_tablero[r] = procesada
-                self.puntuacion += pts
-                self.moved_count += movs
+                self.puntuacion += int(pts)
+                self.moved_count += int(movs)
                 for val, rev_dest_idx, rev_src_idx in f_list:
                     coord = coord_nombre(r, self.tamano - 1 - rev_dest_idx)
                     msgs_fusiones.append(f"{val} se fusionó en {coord}")
@@ -265,14 +266,15 @@ class Logica2048:
                     
         elif direccion == 'ABAJO':
             for c in range(self.tamano):
-                columna = [nuevo_tablero[r][c] for r in range(self.tamano)][::-1]
-                procesada, f_list, pts, movs = self.procesar_linea(columna)
-                procesada = procesada[::-1]
+                columna = [nuevo_tablero[r][c] for r in range(self.tamano)]
+                col_rev = list(reversed(columna))
+                procesada_rev, f_list, pts, movs = self.procesar_linea(col_rev)
+                procesada = list(reversed(procesada_rev))
                 for r in range(self.tamano):
                     if nuevo_tablero[r][c] != procesada[r]: cambio = True
                     nuevo_tablero[r][c] = procesada[r]
-                self.puntuacion += pts
-                self.moved_count += movs
+                self.puntuacion += int(pts)
+                self.moved_count += int(movs)
                 for val, rev_dest_row, rev_src_row in f_list:
                     coord = coord_nombre(self.tamano - 1 - rev_dest_row, c)
                     msgs_fusiones.append(f"{val} se fusionó en {coord}")
@@ -350,9 +352,10 @@ class Logica2048:
             return False
             
         estado_previo = self.history.pop()
-        self.tablero = [fila[:] for fila in estado_previo["tablero"]]
-        self.puntuacion = estado_previo["puntuacion"]
-        self.max_ficha = estado_previo["max_ficha"]
+        tablero: List[List[int]] = estado_previo["tablero"]
+        self.tablero = [fila[:] for fila in tablero]
+        self.puntuacion = int(estado_previo["puntuacion"])
+        self.max_ficha = int(estado_previo["max_ficha"])
         self.new_record = False 
         self.new_high_score = False
         return True
