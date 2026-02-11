@@ -101,15 +101,12 @@ class Logica2048:
             logging.error(f"Error saving game: {e}")
 
     def actualizar_max_ficha(self):
-        m = 0
-        for r in range(self.tamano):
-            for c in range(self.tamano):
-                if self.tablero[r][c] > m:
-                    m = self.tablero[r][c]
+        """Recalcula la ficha máxima del tablero y marca eventos de récord."""
+        m = max(self.tablero[r][c] for r in range(self.tamano) for c in range(self.tamano))
         
         if m > self.max_ficha:
             self.max_ficha = m
-            self.new_record = True # Flag new record event
+            self.new_record = True
             if self.max_ficha >= 2048 and not self.ganado:
                 self.ganado = True
         else:
@@ -135,7 +132,6 @@ class Logica2048:
     def procesar_linea(self, linea):
         nueva_linea = [val for val in linea if val != 0]
         pts = 0
-        movs = 0 
         fusiones = [] # List of tuples: (value, dest_idx, src_idx_relative_to_compressed_but_we_need_absolute)
         
         # Mapping logic is complex inside loop. 
@@ -167,15 +163,13 @@ class Logica2048:
         return nueva_linea + [0] * (len(linea) - len(nueva_linea)), fusiones, pts, moves_made
 
     def _map_pan(self, idx):
-        # Map index 0..3 to -1.0 .. 1.0
-        # 0 -> -0.8 (Leftish)
-        # 3 -> 0.8 (Rightish)
+        """Mapea un índice de celda a un valor de paneo estéreo (-0.8 a 0.8)."""
+        if self.tamano <= 1:
+            return 0.0
         return -0.8 + (1.6 * (idx / (self.tamano - 1)))
 
     def _update_merge_info(self, start, end, val):
-        # Decide if this merge event is "better" than current
-        if not hasattr(self, '_temp_merge_val'): self._temp_merge_val = 0
-        if not hasattr(self, '_temp_merge_dist'): self._temp_merge_dist = 0
+        """Selecciona el merge más relevante para retroalimentación de audio."""
         
         dist = abs(end - start)
         
