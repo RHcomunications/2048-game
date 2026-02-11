@@ -1,3 +1,11 @@
+import os
+import math
+import struct
+import random
+import logging
+import winsound
+import ctypes
+import tempfile
 import shutil
 import atexit
 

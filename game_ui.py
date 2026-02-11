@@ -459,12 +459,24 @@ class VentanaJuego(wx.Frame):
              self.sounds.play('HIGHSCORE')
              self.juego.new_high_score = False # Reset flag
 
-        # Check Victory
-        if getattr(self.juego, 'ganado', False) and not getattr(self.juego, 'victoria_anunciada', False):
-            self.juego.victoria_anunciada = True
-            self.sounds.play('HIGHSCORE')
-            self.anunciar("¡Felicidades! Has alcanzado la ficha 2048. ¡Victoria! Puedes seguir jugando.")
-            wx.CallAfter(wx.MessageBox, "¡Has alcanzado la ficha 2048! ¡Victoria!", "2048", wx.OK | wx.ICON_INFORMATION)
+        # Check Victory Milestones
+        hitos_objetivo = [2048, 4096, 8192, 16384, 32768, 65536]
+        max_f = self.juego.max_ficha
+        for h in hitos_objetivo:
+            if max_f >= h and h not in self.juego.hitos_alcanzados:
+                self.juego.hitos_alcanzados.append(h)
+                self.sounds.play('HIGHSCORE')
+                msg_v = f"¡Increíble! Has alcanzado la ficha {h}. "
+                if h == 2048:
+                    msg_v += "¡Has ganado el juego! Puedes seguir superando tus límites."
+                else:
+                    msg_v += f"Has superado el hito de {h}. ¡Eres una leyenda!"
+                
+                self.anunciar(msg_v)
+                wx.CallAfter(wx.MessageBox, msg_v, "Hito alcanzado", wx.OK | wx.ICON_INFORMATION)
+                
+        if max_f >= 2048:
+             self.juego.ganado = True
 
         for r in range(self.tamano):
             for c in range(self.tamano):

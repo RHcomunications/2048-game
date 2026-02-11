@@ -36,6 +36,7 @@ class Logica2048:
         self.new_record = False # Flag for new max tile
         self.ganado = False # Si llegó a 2048
         self.victoria_anunciada = False # Para no repetir el mensaje
+        self.hitos_alcanzados: List[int] = [] # Hitos de victoria (2048, 4096, etc.)
         self.ARCHIVO_GUARDADO = ARCHIVO_GUARDADO
         self.ARCHIVO_AJUSTES = ARCHIVO_AJUSTES
         
@@ -66,7 +67,8 @@ class Logica2048:
             'high_score': self.high_score,
             'history': self.history,
             'ganado': self.ganado,
-            'victoria_anunciada': self.victoria_anunciada
+            'victoria_anunciada': self.victoria_anunciada,
+            'hitos_alcanzados': self.hitos_alcanzados
         }
 
     def guardar_ajustes(self) -> None:
@@ -105,6 +107,7 @@ class Logica2048:
                   self.history = data.get('history', [])
                   self.ganado = bool(data.get('ganado', False))
                   self.victoria_anunciada = bool(data.get('victoria_anunciada', False))
+                  self.hitos_alcanzados = list(data.get('hitos_alcanzados', []))
                   return True
         return False
 
@@ -121,14 +124,26 @@ class Logica2048:
                 logging.error(f"Error loading game: {e}")
         return False
 
-    def guardar_juego_estado(self):
-
-        data = self.to_dict()
+    def guardar_json_atomico(self, ruta: str, datos: Dict[str, Any]) -> None:
+        """Guarda un diccionario en JSON de forma atómica usando un archivo temporal."""
+        temp_ruta: str = ruta + ".tmp"
         try:
-            with open(self.ARCHIVO_GUARDADO, 'w') as f:
-                json.dump(data, f)
+            with open(temp_ruta, 'w', encoding='utf-8') as f:
+                json.dump(datos, f, indent=4)
+            # Atomic replace
+            if os.path.exists(ruta):
+                os.replace(temp_ruta, ruta)
+            else:
+                os.rename(temp_ruta, ruta)
         except Exception as e:
-            logging.error(f"Error saving game: {e}")
+            logging.error(f"Error en guardado atómico de {ruta}: {e}")
+            if os.path.exists(temp_ruta):
+                try: os.remove(temp_ruta)
+                except: pass
+
+    def guardar_juego_estado(self) -> None:
+        """Persiste el estado actual de la partida de forma atómica."""
+        self.guardar_json_atomico(self.ARCHIVO_GUARDADO, self.to_dict())
 
     def actualizar_max_ficha(self):
         """Recalcula la ficha máxima del tablero y marca eventos de récord."""
@@ -395,63 +410,71 @@ class Logica2048:
         libres = len(self.celdas_libres())
         return f"Puntaje: {self.puntuacion}. Ficha máxima: {self.max_ficha}. Celdas libres: {libres}."
 
-    def obtener_sugerencia(self):
-        """Analiza el tablero y sugiere el mejor movimiento próximo."""
+    def obtener_sugerencia(self) -> str:
+        """Sugerencia avanzada basada en puntos, espacios y estrategia de esquinas."""
         direcciones = ['IZQUIERDA', 'DERECHA', 'ARRIBA', 'ABAJO']
         mejor_dir = "Ninguna"
-        mejor_puntaje = -1
-        max_libres = -1
+        mejor_valor_heuristico = -1.0
         
-        # Simulamos cada movimiento
         for d in direcciones:
             temp_tablero: List[List[int]] = [fila[:] for fila in self.tablero]
             cambio: bool = False
             puntos_mov: int = 0
             
-            # Lógica simplificada de simulación
+            # Simulación
             if d == 'IZQUIERDA':
                 for r in range(self.tamano):
-                    linea_sim: List[int] = temp_tablero[r]
-                    procesada, f_list, pts, movs = self.procesar_linea(linea_sim)
-                    if procesada != linea_sim: cambio = True
-                    temp_tablero[r] = procesada
+                    linea_sim, f_list, pts, movs = self.procesar_linea(temp_tablero[r])
+                    if linea_sim != temp_tablero[r]: cambio = True
+                    temp_tablero[r] = linea_sim
                     puntos_mov += pts
             elif d == 'DERECHA':
                 for r in range(self.tamano):
                     linea_sim = list(reversed(temp_tablero[r]))
-                    procesada, f_list, pts, movs = self.procesar_linea(linea_sim)
-                    res_line: List[int] = list(reversed(procesada))
+                    proc, f_list, pts, movs = self.procesar_linea(linea_sim)
+                    res_line = list(reversed(proc))
                     if res_line != temp_tablero[r]: cambio = True
                     temp_tablero[r] = res_line
                     puntos_mov += pts
             elif d == 'ARRIBA':
                 for c in range(self.tamano):
-                    col_sim: List[int] = [temp_tablero[r][c] for r in range(self.tamano)]
-                    procesada, f_list, pts, movs = self.procesar_linea(col_sim)
+                    col_sim = [temp_tablero[r][c] for r in range(self.tamano)]
+                    proc, f_list, pts, movs = self.procesar_linea(col_sim)
                     for r in range(self.tamano):
-                        if temp_tablero[r][c] != procesada[r]: cambio = True
-                        temp_tablero[r][c] = procesada[r]
+                        if temp_tablero[r][c] != proc[r]: cambio = True
+                        temp_tablero[r][c] = proc[r]
                     puntos_mov += pts
             elif d == 'ABAJO':
                 for c in range(self.tamano):
                     col_sim = list(reversed([temp_tablero[r][c] for r in range(self.tamano)]))
-                    procesada, f_list, pts, movs = self.procesar_linea(col_sim)
-                    procesada_final: List[int] = list(reversed(procesada))
+                    proc, f_list, pts, movs = self.procesar_linea(col_sim)
+                    proc_f = list(reversed(proc))
                     for r in range(self.tamano):
-                        if temp_tablero[r][c] != procesada_final[r]: cambio = True
-                        temp_tablero[r][c] = procesada_final[r]
+                        if temp_tablero[r][c] != proc_f[r]: cambio = True
+                        temp_tablero[r][c] = proc_f[r]
                     puntos_mov += pts
             
             if cambio:
                 libres = sum(1 for row in temp_tablero for cell in row if cell == 0)
-                # Prioridad 1: Más puntos por fusión
-                # Prioridad 2: Más espacios libres (si empatan puntos)
-                if puntos_mov > mejor_puntaje:
-                    mejor_puntaje = puntos_mov
-                    max_libres = libres
-                    mejor_dir = d
-                elif puntos_mov == mejor_puntaje and libres > max_libres:
-                    max_libres = libres
+                # Heurística: 
+                # 1. Valor base por puntos y espacios
+                valor = float(puntos_mov) + (float(libres) * 10.0)
+                
+                # 2. Estrategia de Esquina: El valor máximo DEBE estar en una esquina
+                max_t = 0
+                max_pos = (0,0)
+                for r in range(self.tamano):
+                    for c in range(self.tamano):
+                        if temp_tablero[r][c] > max_t:
+                            max_t = temp_tablero[r][c]
+                            max_pos = (r, c)
+                
+                esquinas = [(0,0), (0, self.tamano-1), (self.tamano-1, 0), (self.tamano-1, self.tamano-1)]
+                if max_pos in esquinas:
+                    valor += max_t * 2.0 # Gran peso a mantener la mejor ficha en esquina
+                
+                if valor > mejor_valor_heuristico:
+                    mejor_valor_heuristico = valor
                     mejor_dir = d
                     
         return mejor_dir
