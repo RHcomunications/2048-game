@@ -1,12 +1,5 @@
-import os
-import math
-import struct
-import random
-import logging
-import winsound
-import ctypes
-import tempfile
 import shutil
+import atexit
 
 class SoundManager:
     """
@@ -43,8 +36,25 @@ class SoundManager:
             self._pregenerate_defaults()
         except Exception as e:
             logging.error(f"Pregeneration failed: {e}")
-            # wx.MessageBox might not be safe here if App not init, but usually ok
-            # wx.MessageBox(f"Error generando sonidos: {e}", "Error de Audio")
+            
+        # Register automatic cleanup on exit
+        atexit.register(self.cleanup)
+
+    def cleanup(self):
+        """Elimina todos los archivos temporales de sonido y el directorio raíz."""
+        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+            try:
+                # Close any remaining handlers or locks if possible
+                # (shutil.rmtree usually handles this if ignore_errors=True, 
+                # but we prefer being explicit)
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+                logging.info(f"Temporales de audio eliminados: {self.temp_dir}")
+            except Exception as e:
+                logging.warning(f"Error limpiando temporales de audio: {e}")
+
+    def __del__(self):
+        """Secondary cleanup attempt when object is garbage collected."""
+        self.cleanup()
 
     def _cleanup_old_folder(self):
         old_path = os.path.join(os.path.expanduser("~"), ".2048_sounds")

@@ -76,6 +76,9 @@ class VentanaJuego(wx.Frame):
         self.juego.guardar_ajustes()
         self.juego.guardar_juego_estado()
         self.log_event("SAVE", "Juego y ajustes guardados al cerrar.")
+        # Liberar recursos de audio inmediatamente
+        if hasattr(self, 'sounds'):
+            self.sounds.cleanup()
         event.Skip()
 
     def _setup_logging(self):
