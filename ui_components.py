@@ -27,19 +27,20 @@ class AccessibleCustom(wx.Accessible):
         return wx.ACC_FALSE, ""
 
 class Celda(wx.Panel):
-    def __init__(self, parent, size, r, c, colores_fondo, colores_fondo_hc, color_texto_oscuro, color_texto_claro, high_contrast_colors):
+    def __init__(self, parent, size, r, c, config):
         super().__init__(parent, size=(size, size))
         self.r = r
         self.c = c
         self.value = 0
         self.acc_name = ""
         self.is_focused = False
+        self.hc_mode = False
         
-        self.COLORS = colores_fondo
-        self.COLORS_HC = colores_fondo_hc
-        self.TEXT_DARK = color_texto_oscuro
-        self.TEXT_LIGHT = color_texto_claro
-        self.COLORS_TEXT_HC = high_contrast_colors
+        self.COLORS = config['colores_fondo']
+        self.COLORS_HC = config['colores_fondo_hc']
+        self.TEXT_DARK = config['color_texto_oscuro']
+        self.TEXT_LIGHT = config['color_texto_claro']
+        self.COLORS_TEXT_HC = config['high_contrast_colors']
         
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.on_paint)
@@ -52,8 +53,10 @@ class Celda(wx.Panel):
         # We allow dynamic update of name
         return self.acc_name if self.acc_name else ""
 
-    def actualizar(self, value, nombre_accesible, notify=False, force_notify=False):
+    def actualizar(self, value, nombre_accesible, notify=False, force_notify=False, hc_mode=None):
         self.value = value
+        if hc_mode is not None:
+            self.hc_mode = hc_mode
         
         # Update Accessible Name
         changed = False
@@ -83,13 +86,7 @@ class Celda(wx.Panel):
         # But we don't have direct access to 'parent.alto_contraste' easily without coupling.
         # Let's check a property or method if exists
         
-        hc_mode = False
-        p = self.GetParent()
-        while p:
-            if hasattr(p, 'alto_contraste'):
-                hc_mode = p.alto_contraste
-                break
-            p = p.GetParent()
+        hc_mode = self.hc_mode
 
         # Background
         if hc_mode:

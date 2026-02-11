@@ -154,18 +154,20 @@ class VentanaJuego(wx.Frame):
         
         sizer = wx.GridSizer(self.tamano, self.tamano, 5, 5)
         
-        # Pass color maps to Celda
+        celda_config = {
+            'colores_fondo': COLORES_FONDO,
+            'colores_fondo_hc': COLORES_FONDO_HC,
+            'color_texto_oscuro': COLOR_TEXTO_OSCURO,
+            'color_texto_claro': COLOR_TEXTO_CLARO,
+            'high_contrast_colors': COLORES_TEXTO_HC
+        }
         
         for r in range(self.tamano):
             fila_botones = []
             for c in range(self.tamano):
                 celda = Celda(panel, size=80, 
                               r=r, c=c, 
-                              colores_fondo=COLORES_FONDO,
-                              colores_fondo_hc=COLORES_FONDO_HC,
-                              color_texto_oscuro=COLOR_TEXTO_OSCURO,
-                              color_texto_claro=COLOR_TEXTO_CLARO,
-                              high_contrast_colors=COLORES_TEXTO_HC)
+                              config=celda_config)
                 
                 sizer.Add(celda, 1, wx.EXPAND | wx.ALL, 6)
                 fila_botones.append(celda)
@@ -482,7 +484,7 @@ class VentanaJuego(wx.Frame):
                 
                 # Si forzamos silencio, notify es False incluso para el foco
                 notify_celda = es_foco and not forzar_silencio_foco
-                celda.actualizar(val, nombre_accesible, notify=notify_celda)
+                celda.actualizar(val, nombre_accesible, notify=notify_celda, hc_mode=self.alto_contraste)
         
         # Consume pending message
         if self.mensaje_evento_pendiente:
