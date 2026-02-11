@@ -107,32 +107,50 @@ class Celda(wx.Panel):
         
         dc.Clear()
         
-        # Text
+        sz = self.GetSize()
+        w, h = sz.width, sz.height
+        radius = 8
+        
+        if not hc_mode:
+            # Subtle Shadow
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 40))) # Very light shadow
+            dc.DrawRoundedRectangle(3, 3, w-4, h-4, radius)
+            
+            # Main Background
+            dc.SetBrush(wx.Brush(wx.Colour(*bg_color)))
+            dc.DrawRoundedRectangle(0, 0, w-2, h-2, radius)
+        else:
+            # HC Mode: Simple thick border
+            dc.SetBackground(wx.Brush(wx.BLACK))
+            dc.Clear()
+            dc.SetPen(wx.Pen(wx.WHITE, 2))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.DrawRoundedRectangle(1, 1, w-2, h-2, radius)
+
+        # Text Rendering
         if self.value != 0:
             font_size = 32 if self.value < 100 else 24 if self.value < 1000 else 18
-            font = wx.Font(font_size, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+            # Modern system font (Segoe UI on Windows)
+            font = wx.Font(font_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, faceName="Segoe UI")
+            if not font.IsOk():
+                font = wx.Font(font_size, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+            
             dc.SetFont(font)
             dc.SetTextForeground(wx.Colour(*txt_color))
             
             txt = str(self.value)
-            w, h = dc.GetTextExtent(txt)
+            tw, th = dc.GetTextExtent(txt)
             
-            sz = self.GetSize()
-            x = (sz.width - w) // 2
-            y = (sz.height - h) // 2
-            dc.DrawText(txt, x, y)
+            # Center precisely
+            tx = (w - tw) // 2
+            ty = (h - th) // 2
+            dc.DrawText(txt, tx, ty)
             
         # Focus Ring
         if self.is_focused:
-            pen = wx.Pen(wx.Colour(0, 100, 255) if not hc_mode else wx.Colour(255, 255, 0), 4)
-            dc.SetPen(pen)
-            dc.SetBrush(wx.Brush("TRANSPARENT", wx.TRANSPARENT))
-            sz = self.GetSize()
-            dc.DrawRectangle(2, 2, sz.width-4, sz.height-4)
-        elif hc_mode:
-            # White border for grid in HC
-            pen = wx.Pen(wx.Colour(255, 255, 255), 2)
-            dc.SetPen(pen)
-            dc.SetBrush(wx.Brush("TRANSPARENT", wx.TRANSPARENT))
-            sz = self.GetSize()
-            dc.DrawRectangle(0, 0, sz.width, sz.height)
+            focus_color = wx.Colour(0, 120, 255) if not hc_mode else wx.Colour(255, 255, 0)
+            dc.SetPen(wx.Pen(focus_color, 4))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            # Focus ring with slightly larger padding for style
+            dc.DrawRoundedRectangle(2, 2, w-4, h-4, radius)

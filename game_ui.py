@@ -118,11 +118,18 @@ class VentanaJuego(wx.Frame):
         return val
 
     def iniciar_ui(self):
+        # Set background for the main frame
+        self.SetBackgroundColour(wx.Colour(*COLOR_FONDO_TABLERO))
+        
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        # Board Panel with padding
         panel = wx.Panel(self)
         self.panel = panel
         panel.SetBackgroundColour(wx.Colour(*COLOR_FONDO_TABLERO))
         
-        sizer = wx.GridSizer(self.tamano, self.tamano, 5, 5)
+        # Grid layout with generous, premium spacing
+        sizer = wx.GridSizer(self.tamano, self.tamano, 10, 10)
         
         celda_config = {
             'colores_fondo': COLORES_FONDO,
@@ -139,15 +146,19 @@ class VentanaJuego(wx.Frame):
                               r=r, c=c, 
                               config=celda_config)
                 
-                sizer.Add(celda, 1, wx.EXPAND | wx.ALL, 6)
+                # Small cell margin to separate shadow from grid edges
+                sizer.Add(celda, 1, wx.EXPAND | wx.ALL, 2)
                 fila_botones.append(celda)
                 
                 self.cache_valores[(r,c)] = -1
             self.botones.append(fila_botones)
             
         panel.SetSizer(sizer)
+        main_sizer.Add(panel, 1, wx.EXPAND | wx.ALL, 15)
+        self.SetSizer(main_sizer)
         
         self.Bind(wx.EVT_CHAR_HOOK, self.al_pulsar_tecla)
+
 
     def al_pulsar_tecla(self, event):
         code = event.GetKeyCode()
