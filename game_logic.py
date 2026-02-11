@@ -382,6 +382,71 @@ class Logica2048:
         self.new_high_score = False
         return True
 
+    def obtener_resumen(self):
+        """Devuelve un resumen textual del estado del juego."""
+        libres = len(self.celdas_libres())
+        return f"Puntaje: {self.puntuacion}. Ficha máxima: {self.max_ficha}. Celdas libres: {libres}."
+
+    def obtener_sugerencia(self):
+        """Analiza el tablero y sugiere el mejor movimiento próximo."""
+        direcciones = ['IZQUIERDA', 'DERECHA', 'ARRIBA', 'ABAJO']
+        mejor_dir = "Ninguna"
+        mejor_puntaje = -1
+        max_libres = -1
+        
+        # Simulamos cada movimiento
+        for d in direcciones:
+            temp_tablero = [fila[:] for fila in self.tablero]
+            cambio = False
+            puntos_mov = 0
+            
+            # Lógica simplificada de simulación
+            if d == 'IZQUIERDA':
+                for r in range(self.tamano):
+                    linea = temp_tablero[r]
+                    procesada, f_list, pts, movs = self.procesar_linea(linea)
+                    if procesada != linea: cambio = True
+                    temp_tablero[r] = procesada
+                    puntos_mov += pts
+            elif d == 'DERECHA':
+                for r in range(self.tamano):
+                    linea = list(reversed(temp_tablero[r]))
+                    procesada, f_list, pts, movs = self.procesar_linea(linea)
+                    if list(reversed(procesada)) != temp_tablero[r]: cambio = True
+                    temp_tablero[r] = list(reversed(procesada))
+                    puntos_mov += pts
+            elif d == 'ARRIBA':
+                for c in range(self.tamano):
+                    col = [temp_tablero[r][c] for r in range(self.tamano)]
+                    procesada, f_list, pts, movs = self.procesar_linea(col)
+                    for r in range(self.tamano):
+                        if temp_tablero[r][c] != procesada[r]: cambio = True
+                        temp_tablero[r][c] = procesada[r]
+                    puntos_mov += pts
+            elif d == 'ABAJO':
+                for c in range(self.tamano):
+                    col = list(reversed([temp_tablero[r][c] for r in range(self.tamano)]))
+                    procesada, f_list, pts, movs = self.procesar_linea(col)
+                    procesada_final = list(reversed(procesada))
+                    for r in range(self.tamano):
+                        if temp_tablero[r][c] != procesada_final[r]: cambio = True
+                        temp_tablero[r][c] = procesada_final[r]
+                    puntos_mov += pts
+            
+            if cambio:
+                libres = sum(1 for row in temp_tablero for cell in row if cell == 0)
+                # Prioridad 1: Más puntos por fusión
+                # Prioridad 2: Más espacios libres (si empatan puntos)
+                if puntos_mov > mejor_puntaje:
+                    mejor_puntaje = puntos_mov
+                    max_libres = libres
+                    mejor_dir = d
+                elif puntos_mov == mejor_puntaje and libres > max_libres:
+                    max_libres = libres
+                    mejor_dir = d
+                    
+        return mejor_dir
+
     def juego_terminado(self):
         if self.celdas_libres():
             return False

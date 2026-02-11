@@ -238,6 +238,16 @@ class VentanaJuego(wx.Frame):
              return
              
         if code == ord('H'):
+             sug = self.juego.obtener_sugerencia()
+             self.anunciar(f"Sugerencia: {sug}")
+             return
+             
+        if code == ord('I'):
+             resumen = self.juego.obtener_resumen()
+             self.anunciar(resumen)
+             return
+             
+        if code == ord('L'):
              self.anunciar_historial()
              return
 
