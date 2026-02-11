@@ -48,7 +48,6 @@ class Logica2048:
         self.history = []
         self.agregar_ficha_random()
         self.agregar_ficha_random()
-        self.cargar_juego() # Try load previous state
 
     def to_dict(self):
         return {
@@ -64,18 +63,25 @@ class Logica2048:
         }
 
     def from_dict(self, data):
-        self.high_score = data.get('high_score', 0)
-        if 'tablero' in data: # and len(data['tablero']) == self.tamano: # Allow resize if logic supports it? Strict for now.
-             if len(data['tablero']) == self.tamano:
-                 self.tablero = data['tablero']
-                 self.puntuacion = data.get('puntuacion', 0)
-                 self.max_ficha = data.get('max_ficha', 0)
-                 self.history = data.get('history', [])
-                 self.verbosidad = data.get('verbosidad', 1)
-                 self.alto_contraste = data.get('alto_contraste', False)
-                 self.ganado = data.get('ganado', False)
-                 self.victoria_anunciada = data.get('victoria_anunciada', False)
-                 return True
+        """Restaura el estado desde un diccionario deserializado de JSON."""
+        if not isinstance(data, dict):
+            return False
+        # Siempre restaurar high_score aunque el tamaño no coincida
+        self.high_score = int(data.get('high_score', self.high_score))
+        if 'tablero' in data:
+             tablero = data['tablero']
+             if (isinstance(tablero, list)
+                     and len(tablero) == self.tamano
+                     and all(isinstance(fila, list) and len(fila) == self.tamano for fila in tablero)):
+                  self.tablero = tablero
+                  self.puntuacion = int(data.get('puntuacion', 0))
+                  self.max_ficha = int(data.get('max_ficha', 0))
+                  self.history = data.get('history', [])
+                  self.verbosidad = int(data.get('verbosidad', 1))
+                  self.alto_contraste = bool(data.get('alto_contraste', False))
+                  self.ganado = bool(data.get('ganado', False))
+                  self.victoria_anunciada = bool(data.get('victoria_anunciada', False))
+                  return True
         return False
 
     def cargar_juego(self):
@@ -122,12 +128,9 @@ class Logica2048:
         return None
 
     def celdas_libres(self):
-        libres = []
-        for r in range(self.tamano):
-            for c in range(self.tamano):
-                if self.tablero[r][c] == 0:
-                    libres.append((r, c))
-        return libres
+        """Retorna lista de tuplas (r, c) de celdas con valor 0."""
+        return [(r, c) for r in range(self.tamano) for c in range(self.tamano)
+                if self.tablero[r][c] == 0]
 
     def procesar_linea(self, linea):
         nueva_linea = [val for val in linea if val != 0]

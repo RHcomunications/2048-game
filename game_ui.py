@@ -54,11 +54,11 @@ class VentanaJuego(wx.Frame):
         # Sonidos
         self.sounds = SoundManager()
         
-        # Intentar cargar juego (Logica2048.iniciar_juego ya intenta cargar)
+        # Intentar cargar juego guardado
         self.juego = Logica2048()
+        loaded = self.juego.cargar_juego()
         
-        if self.juego.max_ficha > 0:
-            # Se cargó una partida guardada
+        if loaded:
             self.tamano = self.juego.tamano
         else:
             self.tamano = self.pedir_tamano()
