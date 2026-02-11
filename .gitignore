@@ -31,7 +31,7 @@ ENV/
 # Game Specific
 game_events.log
 savegame.json
-2048_Accesible_vFinal.zip
+*.zip
 .2048_sounds/
 
 # OS
