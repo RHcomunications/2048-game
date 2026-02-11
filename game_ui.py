@@ -345,12 +345,17 @@ class VentanaJuego(wx.Frame):
                     if self.juego.juego_terminado():
                         self.sounds.play('GAMEOVER')
                         self.SetTitle("2048 - Juego Terminado")
-                        wx.MessageBox(f"Juego Terminado. Puntos: {self.juego.puntuacion}", "Fin")
+                        txt_fin = f"Juego Terminado. Puntaje final: {self.juego.puntuacion}"
+                        self.anunciar(txt_fin)
+                        # MessageBox is modal and blocks, announce FIRST
+                        wx.CallAfter(wx.MessageBox, f"Juego Terminado. Puntos: {self.juego.puntuacion}", "Fin")
                         if os.path.exists(self.juego.ARCHIVO_GUARDADO):
                              try: os.remove(self.juego.ARCHIVO_GUARDADO)
                              except Exception: pass
                 else:
                     self.sounds.play('INVALID')
+                    if self.verbosidad == 2:
+                        self.anunciar("Movimiento no posible")
             else:
                 # NAVEGACION
                 dr, dc = 0, 0
@@ -498,6 +503,8 @@ class VentanaJuego(wx.Frame):
              self.mensaje_evento_pendiente = ""
              
         if narrativa_inicial:
+             welcome = f"Bienvenido a 2048 Accesible. Tablero de {self.tamano} por {self.tamano} listo."
+             self.anunciar(welcome)
              r, c = self.foco_actual
              self.botones[r][c].SetFocus()
 
