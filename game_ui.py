@@ -22,14 +22,8 @@ COLORES_FONDO = {
     1024: (237, 197, 63),# #edc53f
     2048: (237, 194, 46) # #edc22e
 }
-COLORES_FONDO_HC = {
-    0: (0, 0, 0),
-    2: (0, 0, 0),
-    4: (0, 0, 0),
-}
-for i in range(1, 17):
-    val = 2**i
-    COLORES_FONDO_HC[val] = (0, 0, 0)
+COLORES_FONDO_HC = {2**i: (0, 0, 0) for i in range(17)}
+COLORES_FONDO_HC[0] = (0, 0, 0)
 
 COLOR_TEXTO_OSCURO = (119, 110, 101)
 COLOR_TEXTO_CLARO = (249, 246, 242)
@@ -125,8 +119,7 @@ class VentanaJuego(wx.Frame):
                 self.logger.addHandler(handler)
             
             self.logger.info("--- LOG START ---")
-            wx.CallAfter(print, f"Log de eventos activo en: {self.log_file}")
-            print(f"Logging to: {self.log_file}")
+            self.logger.info(f"Log de eventos activo en: {self.log_file}")
             
         except Exception as e:
             wx.MessageBox(f"No se pudo iniciar el log en {self.log_file if hasattr(self, 'log_file') else 'desconocido'}: {e}", 
@@ -138,7 +131,6 @@ class VentanaJuego(wx.Frame):
         msg = f"[{category}] {msg_clean}"
         if hasattr(self, 'logger'):
             self.logger.info(msg)
-        print(msg)
 
     def pedir_tamano(self):
         dlg = wx.TextEntryDialog(None, "Introduce tamaño (4-10):", "Configuración", "4")
@@ -146,9 +138,12 @@ class VentanaJuego(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             try:
                 v = int(dlg.GetValue())
-                if 4 <= v <= 10: val = v
+                if 4 <= v <= 10: 
+                    val = v
+                else:
+                    wx.MessageBox(f"Tamaño {v} fuera de rango (4-10). Usando defecto 4.", "Aviso", wx.ICON_WARNING)
             except ValueError:
-                pass
+                wx.MessageBox("Entrada no válida. Por favor, introduce un número entre 4 y 10. Usando defecto 4.", "Aviso", wx.ICON_WARNING)
         dlg.Destroy()
         return val
 
