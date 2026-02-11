@@ -12,7 +12,11 @@
 Usa estas teclas cuando quieras explorar el estado de las celdas sin realizar movimientos:
 - **FLECHAS**: Te permiten moverte por las celdas del tablero (A1, A2, B1, etc.). Escucharás la coordenada y el valor de la ficha.
 - **INICIO (Home) / FIN (End)**: Salta directamente al inicio o al final de la fila actual.
-- **Ctrl + INICIO / Ctrl + FIN**: Salta a la primera celda (A1) o a la última celda del tablero.
+- **RePág / AvPág**: Salta al inicio o al final de la columna actual.
+- **Ctrl + INICIO**: Salta a la primera celda (A1, esquina superior izquierda).
+- **Ctrl + FIN**: Salta a la última celda del tablero (esquina inferior derecha).
+- **Ctrl + RePág**: Salta a la esquina superior derecha.
+- **Ctrl + AvPág**: Salta a la esquina inferior izquierda.
 
 ### Jugando (Mover Fichas)
 - **SHIFT + FLECHAS**: Desplaza todas las fichas en la dirección elegida para realizar fusiones.
@@ -25,10 +29,11 @@ Usa estas teclas cuando quieras explorar el estado de las celdas sin realizar mo
 - **H**: Escuchar el **Historial de anuncios** (los últimos 20 eventos importantes).
 
 ### Gestión de Partida
-- **C**: Alternar el modo de **Alto Contraste** visual.
+- **F5**: Alternar el modo de **Alto Contraste** visual.
 - **Ctrl + Z**: **Deshacer** el último movimiento.
 - **Ctrl + R**: **Reiniciar** una partida nueva.
 - **Ctrl + S**: **Guardar** la partida manualmente.
+- **F1**: Mostrar la **Ayuda** con todos los atajos.
 - **ESC**: Salir del juego (se guarda automáticamente).
 
 ## 📝 Notas Técnicas
@@ -36,5 +41,11 @@ Usa estas teclas cuando quieras explorar el estado de las celdas sin realizar mo
 - **Logs de Eventos**: El archivo `game_events.log` registra técnicamente cada acción para depuración.
 - **Sin Instalación**: El ejecutable es "portable", puedes llevarlo en un USB y jugarlo en cualquier PC con Windows.
 
+## 🛠️ Requisitos para Desarrollo
+- Python 3.8+
+- wxPython 4.x (`pip install wxPython`)
+- Windows (para `winsound` y `ctypes.windll`)
+
 ---
 *Desarrollado con pasión por la accesibilidad.*
+
