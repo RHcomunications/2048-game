@@ -2,65 +2,76 @@ import json
 import logging
 import os
 import random
-from typing import List, Dict, Any, Tuple, cast
-from constants import ARCHIVO_GUARDADO, ARCHIVO_AJUSTES
+from typing import List, Dict, Any, Tuple, Optional
+from constants import ARCHIVO_GUARDADO, ARCHIVO_AJUSTES, VALOR_VICTORIA
 
-def coord_nombre(r, c):
-    # e.g., A1, B3
-    # r=0 -> A
+def coord_nombre(r: int, c: int) -> str:
+    """Convierte coordenadas (r, c) a notación humana, e.g., A1, B3."""
     fila = chr(ord('A') + r)
     col = c + 1
     return f"{fila}{col}"
+
 
 class Logica2048:
     """
     Core engine for the 2048 game logic.
     Handles board state, move calculations, score, and undo history.
     """
-    def __init__(self, tamano: int = 4):
+    def __init__(self, tamano: int = 4, auto_init: bool = True):
+        """Inicializa la lógica del juego.
+
+        Args:
+            tamano: Tamaño del tablero (NxN).
+            auto_init: Si True, genera tablero inicial. Pasar False cuando
+                       se va a cargar estado desde disco inmediatamente después.
+        """
         self.tamano: int = tamano
         self.tablero: List[List[int]] = []
         self.puntuacion: int = 0
         self.max_ficha: int = 0
         self.narrativa: List[str] = []
-        self.ultimo_evento: str = "" # 'MOVE', 'MERGE', ""
-        self.merge_info: Tuple[float, float, int] = (0.0, 0.0, 0) # (start_pan, end_pan, val)
-        self.moved_count: int = 0
-        self.merge_count: int = 0 
-        self._temp_merge_val: int = 0
-        self._temp_merge_dist: float = 0.0
-        
-        # High Score Handling
-        self.high_score = 0
-        self.new_high_score = False # Flag for current turn event
-        self.new_record = False # Flag for new max tile
-        self.ganado = False # Si llegó a 2048
-        self.victoria_anunciada = False # Para no repetir el mensaje
-        self.hitos_alcanzados: List[int] = [] # Hitos de victoria (2048, 4096, etc.)
+
+        # High Score
+        self.high_score: int = 0
+        self.new_high_score: bool = False
+
+        # Victoria
+        self.ganado: bool = False
+        self.victoria_anunciada: bool = False
+        self.hitos_alcanzados: List[int] = []
+
         self.ARCHIVO_GUARDADO = ARCHIVO_GUARDADO
         self.ARCHIVO_AJUSTES = ARCHIVO_AJUSTES
-        
-        # Accessibility Config
-        self.verbosidad = 1 # 0: Brief, 1: Normal, 2: Verbose
-        self.alto_contraste = False
-        
-        # Undo History
-        self.history: List[Dict[str, Any]] = []
-        
-        self.cargar_ajustes() # Load user preferences before starting logic
-        self.iniciar_juego()
 
-    def iniciar_juego(self):
+        # Accessibility Config
+        self.verbosidad: int = 1  # 0: Bajo, 1: Normal, 2: Alto
+        self.alto_contraste: bool = False
+
+        # Undo History (máximo 3 estados)
+        self.history: List[Dict[str, Any]] = []
+
+        self.cargar_ajustes()
+        # H2-02: Solo iniciar tablero si no se va a cargar estado después
+        if auto_init:
+            self.iniciar_juego()
+
+    def iniciar_juego(self) -> None:
+        """Reinicia el tablero con dos fichas aleatorias."""
         self.tablero = [[0] * self.tamano for _ in range(self.tamano)]
         self.puntuacion = 0
         self.max_ficha = 0
         self.history = []
+        # P4-01: Reset estado de victoria al reiniciar
+        self.ganado = False
+        self.victoria_anunciada = False
+        self.hitos_alcanzados = []
         self.agregar_ficha_random()
         self.agregar_ficha_random()
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Convierte el estado esencial de la partida a un diccionario."""
         return {
+            'tamano': self.tamano,
             'tablero': self.tablero,
             'puntuacion': self.puntuacion,
             'max_ficha': self.max_ficha,
@@ -79,7 +90,7 @@ class Logica2048:
         }
         self.guardar_json_atomico(self.ARCHIVO_AJUSTES, ajustes)
 
-    def cargar_ajustes(self):
+    def cargar_ajustes(self) -> None:
         """Carga configuraciones de usuario desde settings.json."""
         if os.path.exists(self.ARCHIVO_AJUSTES):
             try:
@@ -90,29 +101,33 @@ class Logica2048:
             except Exception as e:
                 logging.error(f"Error cargando ajustes: {e}")
 
-    def from_dict(self, data):
+    def from_dict(self, data: Any) -> bool:
         """Restaura el estado desde un diccionario deserializado de JSON."""
         if not isinstance(data, dict):
             return False
         # Siempre restaurar high_score aunque el tamaño no coincida
         self.high_score = int(data.get('high_score', self.high_score))
+        # E3-03: Restaurar tamaño si está disponible en el save
+        if 'tamano' in data:
+            self.tamano = int(data['tamano'])
         if 'tablero' in data:
-             tablero = data['tablero']
-             if (isinstance(tablero, list)
-                     and len(tablero) == self.tamano
-                     and all(isinstance(fila, list) and len(fila) == self.tamano for fila in tablero)):
-                  self.tablero = tablero
-                  self.puntuacion = int(data.get('puntuacion', 0))
-                  self.max_ficha = int(data.get('max_ficha', 0))
-                  self.history = data.get('history', [])
-                  self.ganado = bool(data.get('ganado', False))
-                  self.victoria_anunciada = bool(data.get('victoria_anunciada', False))
-                  self.hitos_alcanzados = list(data.get('hitos_alcanzados', []))
-                  return True
+            tablero = data['tablero']
+            if (isinstance(tablero, list)
+                    and len(tablero) == self.tamano
+                    and all(isinstance(fila, list) and len(fila) == self.tamano for fila in tablero)):
+                # H-03: Sanear cada celda a int para prevenir corrupción
+                self.tablero = [[int(cell) for cell in fila] for fila in tablero]
+                self.puntuacion = int(data.get('puntuacion', 0))
+                self.max_ficha = int(data.get('max_ficha', 0))
+                self.history = data.get('history', [])
+                self.ganado = bool(data.get('ganado', False))
+                self.victoria_anunciada = bool(data.get('victoria_anunciada', False))
+                self.hitos_alcanzados = list(data.get('hitos_alcanzados', []))
+                return True
         return False
 
-    def cargar_juego(self):
-
+    def cargar_juego(self) -> bool:
+        """Carga partida guardada desde savegame.json."""
         if os.path.exists(self.ARCHIVO_GUARDADO):
             try:
                 with open(self.ARCHIVO_GUARDADO, 'r') as f:
@@ -125,39 +140,34 @@ class Logica2048:
         return False
 
     def guardar_json_atomico(self, ruta: str, datos: Dict[str, Any]) -> None:
-        """Guarda un diccionario en JSON de forma atómica usando un archivo temporal."""
+        """Guarda un diccionario en JSON de forma atómica usando archivo temporal."""
         temp_ruta: str = ruta + ".tmp"
         try:
             with open(temp_ruta, 'w', encoding='utf-8') as f:
                 json.dump(datos, f, indent=4)
-            # Atomic replace
-            if os.path.exists(ruta):
-                os.replace(temp_ruta, ruta)
-            else:
-                os.rename(temp_ruta, ruta)
+            # H-04: os.replace() es atómico y funciona siempre
+            os.replace(temp_ruta, ruta)
         except Exception as e:
             logging.error(f"Error en guardado atómico de {ruta}: {e}")
             if os.path.exists(temp_ruta):
-                try: os.remove(temp_ruta)
-                except: pass
+                try:
+                    os.remove(temp_ruta)
+                except Exception:
+                    pass
 
     def guardar_juego_estado(self) -> None:
         """Persiste el estado actual de la partida de forma atómica."""
         self.guardar_json_atomico(self.ARCHIVO_GUARDADO, self.to_dict())
 
-    def actualizar_max_ficha(self):
-        """Recalcula la ficha máxima del tablero y marca eventos de récord."""
+    def actualizar_max_ficha(self) -> None:
+        """Recalcula la ficha máxima del tablero."""
         m = max(self.tablero[r][c] for r in range(self.tamano) for c in range(self.tamano))
-        
-        if m > self.max_ficha:
-            self.max_ficha = m
-            self.new_record = True
-            if self.max_ficha >= 2048 and not self.ganado:
-                self.ganado = True
-        else:
-            self.new_record = False
+        self.max_ficha = m
+        if self.max_ficha >= VALOR_VICTORIA and not self.ganado:
+            self.ganado = True
 
-    def agregar_ficha_random(self):
+    def agregar_ficha_random(self) -> Optional[Tuple[int, int, int]]:
+        """Coloca una ficha (2 o 4) en una celda libre aleatoria."""
         celdas = self.celdas_libres()
         if celdas:
             r, c = random.choice(celdas)
@@ -166,246 +176,235 @@ class Logica2048:
             return (r, c, val)
         return None
 
-    def celdas_libres(self):
+    def celdas_libres(self) -> List[Tuple[int, int]]:
         """Retorna lista de tuplas (r, c) de celdas con valor 0."""
         return [(r, c) for r in range(self.tamano) for c in range(self.tamano)
                 if self.tablero[r][c] == 0]
 
     def procesar_linea(self, linea: List[int]) -> Tuple[List[int], List[Tuple[int, int, int]], int, int]:
         """
-        Processes a single row or column for movement and merging.
-        
+        Procesa una fila o columna para movimiento y fusión.
+
         Returns:
-            Tuple containing:
-            - The new line (list of ints)
-            - List of fusion details (value, destination_index, source_index)
-            - Total points gained
-            - Total count of shifted tiles
+            Tupla con:
+            - La nueva línea (list de ints)
+            - Lista de detalles de fusión (valor, índice_destino, índice_origen)
+            - Total de puntos ganados
+            - Cantidad de fichas que cambiaron de posición
         """
-        nueva_linea: List[int] = [val for val in linea if val != 0]
+        # Compactar: quitar ceros
+        compacta: List[int] = [val for val in linea if val != 0]
         pts: int = 0
-        fusiones: List[Tuple[int, int, int]] = [] 
-        
-        # Mapping logic is complex inside loop. 
-        # Standard 2048: Leftmost merge first.
-        
+        fusiones: List[Tuple[int, int, int]] = []
+
+        # Fusionar pares adyacentes (izquierda primero)
         i = 0
-        while i < len(nueva_linea) - 1:
-            if nueva_linea[i] == nueva_linea[i+1]:
-                val: int = nueva_linea[i] * 2
-                nueva_linea[i] = val
-                nueva_linea.pop(i+1)
-                pts += val # type: ignore
-                fusiones.append((val, i, i+1)) 
+        while i < len(compacta) - 1:
+            if compacta[i] == compacta[i + 1]:
+                val: int = compacta[i] * 2
+                compacta[i] = val
+                compacta.pop(i + 1)
+                pts += val
+                fusiones.append((val, i, i + 1))
                 i += 1
             else:
                 i += 1
-                
-        moves_made: int = 0
-        for i, val in enumerate(linea):
-            if val != 0:
-                moves_made += 1
-        
-        # If the line stayed the same, moves_made should be 0 for sound purposes
-        if linea == nueva_linea + [0] * (len(linea) - len(nueva_linea)) and not fusiones:
-            moves_made = 0
 
-        return nueva_linea + [0] * (len(linea) - len(nueva_linea)), fusiones, pts, moves_made
+        # Rellenar con ceros
+        resultado = compacta + [0] * (len(linea) - len(compacta))
 
-    def _map_pan(self, idx):
-        """Mapea un índice de celda a un valor de paneo estéreo (-0.8 a 0.8)."""
-        if self.tamano <= 1:
-            return 0.0
-        return -0.8 + (1.6 * (idx / (self.tamano - 1)))
+        # H-05: Contar fichas que realmente cambiaron de posición
+        fichas_movidas: int = 0
+        for idx in range(len(linea)):
+            if linea[idx] != resultado[idx]:
+                fichas_movidas += 1
 
-    def _update_merge_info(self, start, end, val):
-        """Selecciona el merge más relevante para retroalimentación de audio."""
-        
-        dist = abs(end - start)
-        
-        if self.merge_info == (0.0, 0.0, 0):
-            self.merge_info = (start, end, val)
-            self._temp_merge_val = val
-        else:
-            if val > self._temp_merge_val:
-                self.merge_info = (start, end, val)
-                self._temp_merge_val = val
-            elif val == self._temp_merge_val:
-                 # Tie breaker: Distance
-                 curr_dist = 0
-                 if isinstance(self.merge_info, tuple) and len(self.merge_info) >= 2:
-                      curr_dist = abs(self.merge_info[1] - self.merge_info[0])
-                     
-                 if dist > curr_dist:
-                      self.merge_info = (start, end, val)
+        return resultado, fusiones, pts, fichas_movidas
 
-    def mover(self, direccion):
-        # Save state for Undo
-        tablero_ant = [f[:] for f in self.tablero]
-        score_ant = self.puntuacion
-        max_ant = self.max_ficha
-        
-        nuevo_tablero = [fila[:] for fila in self.tablero]
+    # ─── E-01: Método unificado para aplicar movimiento a un tablero ───
+
+    def _aplicar_movimiento(self, tablero: List[List[int]], direccion: str
+                            ) -> Tuple[List[List[int]], bool, int, List[Tuple[int, int, int, int, int]], int, int]:
+        """
+        Aplica un movimiento a una COPIA del tablero.
+
+        Returns:
+            (nuevo_tablero, cambio, puntos, fusiones_detalladas, moved_count, merge_count)
+            fusiones_detalladas: [(val, fila_real, col_real, src_pan_idx, dest_pan_idx), ...]
+        """
+        nuevo = [fila[:] for fila in tablero]
         cambio = False
-        msgs_fusiones = []
-        
-        self.merge_count = 0
-        self.moved_count = 0 
-        self.merge_info = (0.0, 0.0, 0)
-        self._temp_merge_val = 0
-        self._temp_merge_dist = 0.0
-        
-        # Lógica EXPLÍCITA por dirección (Simplificada para brevity en extracción)
-        # Assuming original logic structure...
-        # To avoid massive copy-paste error, I will try to preserve the logic 
-        # exactly as it was or close to it.
-        
+        puntos_total = 0
+        fusiones_det: List[Tuple[int, int, int, int, int]] = []
+        total_moved = 0
+        total_merges = 0
+
         if direccion == 'IZQUIERDA':
             for r in range(self.tamano):
-                linea = nuevo_tablero[r]
+                linea = nuevo[r]
                 procesada, f_list, pts, movs = self.procesar_linea(linea)
-                if procesada != linea: cambio = True
-                nuevo_tablero[r] = procesada
-                self.puntuacion += pts
-                self.moved_count += movs
+                if procesada != linea:
+                    cambio = True
+                nuevo[r] = procesada
+                puntos_total += pts
+                total_moved += movs
                 for val, dest_idx, src_idx in f_list:
-                    coord = coord_nombre(r, dest_idx)
-                    msgs_fusiones.append(f"{val} se fusionó en {coord}")
-                    p_start = self._map_pan(src_idx)
-                    p_end = self._map_pan(dest_idx)
-                    self._update_merge_info(p_start, p_end, val)
-                    self.merge_count += 1
-                
+                    fusiones_det.append((val, r, dest_idx, src_idx, dest_idx))
+                    total_merges += 1
+
         elif direccion == 'DERECHA':
             for r in range(self.tamano):
-                linea_rev = list(reversed(nuevo_tablero[r]))
+                linea_rev = list(reversed(nuevo[r]))
                 procesada_rev, f_list, pts, movs = self.procesar_linea(linea_rev)
                 procesada = list(reversed(procesada_rev))
-                if procesada != nuevo_tablero[r]: cambio = True
-                nuevo_tablero[r] = procesada
-                self.puntuacion += int(pts)
-                self.moved_count += int(movs)
+                if procesada != nuevo[r]:
+                    cambio = True
+                nuevo[r] = procesada
+                puntos_total += pts
+                total_moved += movs
                 for val, rev_dest_idx, rev_src_idx in f_list:
-                    coord = coord_nombre(r, self.tamano - 1 - rev_dest_idx)
-                    msgs_fusiones.append(f"{val} se fusionó en {coord}")
-                    p_start = self._map_pan(self.tamano - 1 - rev_src_idx) # Fix logic?
-                    p_end = self._map_pan(self.tamano - 1 - rev_dest_idx)
-                    self._update_merge_info(p_start, p_end, val)
-                    self.merge_count += 1
-                
+                    real_col = self.tamano - 1 - rev_dest_idx
+                    fusiones_det.append((val, r, real_col,
+                                        self.tamano - 1 - rev_src_idx,
+                                        real_col))
+                    total_merges += 1
+
         elif direccion == 'ARRIBA':
             for c in range(self.tamano):
-                columna = [nuevo_tablero[r][c] for r in range(self.tamano)]
+                columna = [nuevo[r][c] for r in range(self.tamano)]
                 procesada, f_list, pts, movs = self.procesar_linea(columna)
                 for r in range(self.tamano):
-                    if nuevo_tablero[r][c] != procesada[r]: cambio = True
-                    nuevo_tablero[r][c] = procesada[r]
-                self.puntuacion += pts
-                self.moved_count += movs
+                    if nuevo[r][c] != procesada[r]:
+                        cambio = True
+                    nuevo[r][c] = procesada[r]
+                puntos_total += pts
+                total_moved += movs
                 for val, dest_row, src_row in f_list:
-                    coord = coord_nombre(dest_row, c)
-                    msgs_fusiones.append(f"{val} se fusionó en {coord}")
-                    pan = self._map_pan(c)
-                    self._update_merge_info(pan, pan, val)
-                    self.merge_count += 1
-                    
+                    fusiones_det.append((val, dest_row, c, c, c))
+                    total_merges += 1
+
         elif direccion == 'ABAJO':
             for c in range(self.tamano):
-                columna = [nuevo_tablero[r][c] for r in range(self.tamano)]
+                columna = [nuevo[r][c] for r in range(self.tamano)]
                 col_rev = list(reversed(columna))
                 procesada_rev, f_list, pts, movs = self.procesar_linea(col_rev)
                 procesada = list(reversed(procesada_rev))
                 for r in range(self.tamano):
-                    if nuevo_tablero[r][c] != procesada[r]: cambio = True
-                    nuevo_tablero[r][c] = procesada[r]
-                self.puntuacion += int(pts)
-                self.moved_count += int(movs)
+                    if nuevo[r][c] != procesada[r]:
+                        cambio = True
+                    nuevo[r][c] = procesada[r]
+                puntos_total += pts
+                total_moved += movs
                 for val, rev_dest_row, rev_src_row in f_list:
-                    coord = coord_nombre(self.tamano - 1 - rev_dest_row, c)
-                    msgs_fusiones.append(f"{val} se fusionó en {coord}")
-                    pan = self._map_pan(c)
-                    self._update_merge_info(pan, pan, val)
-                    self.merge_count += 1
+                    real_row = self.tamano - 1 - rev_dest_row
+                    fusiones_det.append((val, real_row, c, c, c))
+                    total_merges += 1
+
+        return nuevo, cambio, puntos_total, fusiones_det, total_moved, total_merges
+
+    def mover(self, direccion: str) -> bool:
+        """Ejecuta un movimiento en la dirección dada. Retorna True si hubo cambio."""
+        # Guardar estado para Undo
+        tablero_ant = [f[:] for f in self.tablero]
+        score_ant = self.puntuacion
+        max_ant = self.max_ficha
+        ganado_ant = self.ganado
+        victoria_anunciada_ant = self.victoria_anunciada
+        hitos_ant = self.hitos_alcanzados[:]
+
+        nuevo_tablero, cambio, pts, fusiones_det, moved, merges = \
+            self._aplicar_movimiento(self.tablero, direccion)
 
         if cambio:
-            # History
+            self.puntuacion += pts
+
+            # Construir narrativa
+            msgs_fusiones: List[str] = []
+            for val, row, col, src_pan_idx, dest_pan_idx in fusiones_det:
+                coord = coord_nombre(row, col)
+                msgs_fusiones.append(f"{val} se fusionó en {coord}")
+
+            # History (máximo 3 estados)
             if len(self.history) >= 3:
                 self.history.pop(0)
             self.history.append({
                 "tablero": tablero_ant,
                 "puntuacion": score_ant,
-                "max_ficha": max_ant
+                "max_ficha": max_ant,
+                # H-01: Guardar estado de victoria para undo completo
+                "ganado": ganado_ant,
+                "victoria_anunciada": victoria_anunciada_ant,
+                "hitos_alcanzados": hitos_ant
             })
-            
-            # Update High Score
+
+            # Actualizar High Score
             if self.puntuacion > self.high_score:
                 self.high_score = self.puntuacion
                 self.new_high_score = True
-                self.new_record = False # Only fanfare for score if it's new
             else:
                 self.new_high_score = False
 
             self.tablero = nuevo_tablero
-            # Add new tile and narrative
+
+            # Agregar ficha nueva
             new_tile = self.agregar_ficha_random()
             if new_tile and self.verbosidad > 0:
                 r, c, val = new_tile
                 coord = coord_nombre(r, c)
                 msgs_fusiones.append(f"Se añadió {val} a {coord}")
-                
+
             self.actualizar_max_ficha()
-            
-            # Events
-            if self.merge_count > 0:
-                self.ultimo_evento = 'MERGE'
-                # Consolidate narratives: "3 fusionados en 4", etc.
-                # Actually, simpler: count by value
-                counts = {}
+
+            # Construir narrativa final
+            if merges > 0:
+                counts: Dict[str, int] = {}
                 for m in msgs_fusiones:
                     if "fusionó" in m:
-                        val = m.split(" ")[0]
-                        counts[val] = counts.get(val, 0) + 1
-                
-                final_narrative = []
-                for val, count in counts.items():
+                        val_str = m.split(" ")[0]
+                        counts[val_str] = counts.get(val_str, 0) + 1
+
+                final_narrative: List[str] = []
+                for val_str, count in counts.items():
                     if count > 1:
-                        final_narrative.append(f"{count} fichas {val} fusionadas")
+                        final_narrative.append(f"{count} fichas {val_str} fusionadas")
                     else:
-                        # Find the original coordinate message for the single merge
                         for m in msgs_fusiones:
-                            if m.startswith(f"{val} "):
+                            if m.startswith(f"{val_str} "):
                                 final_narrative.append(m)
                                 break
-                
-                # Add spawn info
+
                 for m in msgs_fusiones:
                     if "añadió" in m:
                         final_narrative.append(m)
-                
+
                 self.narrativa = final_narrative
             else:
-                self.ultimo_evento = 'MOVE'
-                self.narrativa = msgs_fusiones # Usually just spawn info or empty
+                self.narrativa = msgs_fusiones
+
             self.guardar_juego_estado()
             return True
         else:
-            self.ultimo_evento = ""
             return False
 
-    def deshacer(self):
+    def deshacer(self) -> bool:
+        """Deshace el último movimiento, restaurando TODO el estado."""
         if not self.history:
             return False
-            
+
         estado_previo = self.history.pop()
         tablero: List[List[int]] = estado_previo["tablero"]
         self.tablero = [fila[:] for fila in tablero]
         self.puntuacion = int(estado_previo["puntuacion"])
         self.max_ficha = int(estado_previo["max_ficha"])
-        self.new_record = False 
-        self.new_high_score = False
+        # H-01: Restaurar estado de victoria completo
+        self.ganado = bool(estado_previo.get("ganado", self.max_ficha >= VALOR_VICTORIA))
+        self.victoria_anunciada = bool(estado_previo.get("victoria_anunciada", False))
+        self.hitos_alcanzados = list(estado_previo.get("hitos_alcanzados",
+                                    [h for h in self.hitos_alcanzados if h <= self.max_ficha]))
+        # L4-05: new_high_score se resetea en game_ui.actualizar_tablero()
         return True
 
-    def obtener_resumen(self):
+    def obtener_resumen(self) -> str:
         """Devuelve un resumen textual del estado del juego."""
         libres = len(self.celdas_libres())
         return f"Puntaje: {self.puntuacion}. Ficha máxima: {self.max_ficha}. Celdas libres: {libres}."
@@ -415,80 +414,46 @@ class Logica2048:
         direcciones = ['IZQUIERDA', 'DERECHA', 'ARRIBA', 'ABAJO']
         mejor_dir = "Ninguna"
         mejor_valor_heuristico = -1.0
-        
+
         for d in direcciones:
-            temp_tablero: List[List[int]] = [fila[:] for fila in self.tablero]
-            cambio: bool = False
-            puntos_mov: int = 0
-            
-            # Simulación
-            if d == 'IZQUIERDA':
-                for r in range(self.tamano):
-                    linea_sim, f_list, pts, movs = self.procesar_linea(temp_tablero[r])
-                    if linea_sim != temp_tablero[r]: cambio = True
-                    temp_tablero[r] = linea_sim
-                    puntos_mov += pts
-            elif d == 'DERECHA':
-                for r in range(self.tamano):
-                    linea_sim = list(reversed(temp_tablero[r]))
-                    proc, f_list, pts, movs = self.procesar_linea(linea_sim)
-                    res_line = list(reversed(proc))
-                    if res_line != temp_tablero[r]: cambio = True
-                    temp_tablero[r] = res_line
-                    puntos_mov += pts
-            elif d == 'ARRIBA':
-                for c in range(self.tamano):
-                    col_sim = [temp_tablero[r][c] for r in range(self.tamano)]
-                    proc, f_list, pts, movs = self.procesar_linea(col_sim)
-                    for r in range(self.tamano):
-                        if temp_tablero[r][c] != proc[r]: cambio = True
-                        temp_tablero[r][c] = proc[r]
-                    puntos_mov += pts
-            elif d == 'ABAJO':
-                for c in range(self.tamano):
-                    col_sim = list(reversed([temp_tablero[r][c] for r in range(self.tamano)]))
-                    proc, f_list, pts, movs = self.procesar_linea(col_sim)
-                    proc_f = list(reversed(proc))
-                    for r in range(self.tamano):
-                        if temp_tablero[r][c] != proc_f[r]: cambio = True
-                        temp_tablero[r][c] = proc_f[r]
-                    puntos_mov += pts
-            
-            if cambio:
+            # E-01 / H-06: Usar el método unificado con copia segura
+            temp_tablero, cambio_sim, puntos_mov, _, _, _ = \
+                self._aplicar_movimiento(self.tablero, d)
+
+            if cambio_sim:
                 libres = sum(1 for row in temp_tablero for cell in row if cell == 0)
-                # Heurística: 
-                # 1. Valor base por puntos y espacios
                 valor = float(puntos_mov) + (float(libres) * 10.0)
-                
-                # 2. Estrategia de Esquina: El valor máximo DEBE estar en una esquina
+
+                # Estrategia de esquina
                 max_t = 0
-                max_pos = (0,0)
+                max_pos = (0, 0)
                 for r in range(self.tamano):
                     for c in range(self.tamano):
                         if temp_tablero[r][c] > max_t:
                             max_t = temp_tablero[r][c]
                             max_pos = (r, c)
-                
-                esquinas = [(0,0), (0, self.tamano-1), (self.tamano-1, 0), (self.tamano-1, self.tamano-1)]
+
+                esquinas = [(0, 0), (0, self.tamano - 1),
+                            (self.tamano - 1, 0), (self.tamano - 1, self.tamano - 1)]
                 if max_pos in esquinas:
-                    valor += max_t * 2.0 # Gran peso a mantener la mejor ficha en esquina
-                
+                    valor += max_t * 2.0
+
                 if valor > mejor_valor_heuristico:
                     mejor_valor_heuristico = valor
                     mejor_dir = d
-                    
+
         return mejor_dir
 
-    def juego_terminado(self):
+    def juego_terminado(self) -> bool:
+        """Retorna True si no hay movimientos posibles."""
         if self.celdas_libres():
             return False
-        
-        # Check adjacent
+
         for r in range(self.tamano):
             for c in range(self.tamano):
                 val = self.tablero[r][c]
-                if c + 1 < self.tamano and self.tablero[r][c+1] == val:
+                if c + 1 < self.tamano and self.tablero[r][c + 1] == val:
                     return False
-                if r + 1 < self.tamano and self.tablero[r+1][c] == val:
+                if r + 1 < self.tamano and self.tablero[r + 1][c] == val:
                     return False
         return True

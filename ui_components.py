@@ -1,35 +1,57 @@
 """Componentes UI accesibles para el tablero 2048."""
-import ctypes
 import logging
+import platform
 
 import wx
 
 from constants import EVENT_OBJECT_NAMECHANGE, OBJID_CLIENT, CHILDID_SELF
 
-user32 = ctypes.windll.user32
-# Define signature to avoid unwanted 64-bit expansion of negative args
-user32.NotifyWinEvent.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_long, ctypes.c_long]
-user32.NotifyWinEvent.restype = None
+# E-04: Guard de plataforma para Windows-specific API
+if platform.system() == 'Windows':
+    import ctypes
+    user32 = ctypes.windll.user32
+    user32.NotifyWinEvent.argtypes = [
+        ctypes.c_uint, ctypes.c_void_p, ctypes.c_long, ctypes.c_long
+    ]
+    user32.NotifyWinEvent.restype = None
+else:
+    user32 = None
 
 logger = logging.getLogger("2048_Accesible")
 
+
+# A-01: Exponer rol semántico CELL para lectores de pantalla
 class AccessibleCustom(wx.Accessible):
-    def __init__(self, win, name=""):
+    """Objeto accesible que expone nombre y rol a lectores de pantalla."""
+
+    def __init__(self, win, name="", role=wx.ROLE_SYSTEM_CELL):
         super().__init__(win)
         self.name = name
-        
+        self.role = role
+
     def GetName(self, childId):
         if childId == wx.ACC_SELF:
             return wx.ACC_OK, self.name
         return wx.ACC_FALSE, ""
 
+    def GetRole(self, childId):
+        if childId == wx.ACC_SELF:
+            return wx.ACC_OK, self.role
+        return wx.ACC_FALSE, 0
+
+    def GetDescription(self, childId):
+        if childId == wx.ACC_SELF:
+            return wx.ACC_OK, self.name
+        return wx.ACC_FALSE, ""
+
+
 class Celda(wx.Panel):
     """
-    Accessible UI component representing a single tile on the 2048 board.
-    Handles custom painting with shadows, focus rings, and WinAPI accessibility events.
+    Componente UI accesible que representa una celda del tablero 2048.
+    Maneja pintado personalizado con sombras, anillo de foco, y eventos WinAPI.
     """
     def __init__(self, parent, size, r, c, config):
-        """Initializes the cell with position and color configuration."""
+        """Inicializa la celda con posición y configuración de colores."""
         super().__init__(parent, size=(size, size))
         self.r = r
         self.c = c
@@ -37,105 +59,94 @@ class Celda(wx.Panel):
         self.acc_name = ""
         self.is_focused = False
         self.hc_mode = False
-        
+
         self.COLORS = config['colores_fondo']
-        self.COLORS_HC = config['colores_fondo_hc']
         self.TEXT_DARK = config['color_texto_oscuro']
         self.TEXT_LIGHT = config['color_texto_claro']
         self.COLORS_TEXT_HC = config['high_contrast_colors']
-        
+
         self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
         self.Bind(wx.EVT_PAINT, self.on_paint)
-        
-        # Accessibility Init
+
+        # Accesibilidad
         self.accessible_obj = AccessibleCustom(self, self._get_acc_name())
         self.SetAccessible(self.accessible_obj)
 
     def _get_acc_name(self):
-        # We allow dynamic update of name
         return self.acc_name if self.acc_name else ""
 
+    def _notify_screen_reader(self):
+        """Lanza evento WinAPI para notificar cambio de nombre al lector de pantalla."""
+        if user32 is not None and self.GetHandle():
+            nombre_log = str(self.acc_name).rstrip()
+            logger.info(f"[WINAPI_NOTIFY] Cell {self.r},{self.c} - Name: {nombre_log}")
+            user32.NotifyWinEvent(
+                EVENT_OBJECT_NAMECHANGE,
+                self.GetHandle(),
+                OBJID_CLIENT,
+                CHILDID_SELF
+            )
+
     def actualizar(self, value, nombre_accesible, notify=False, force_notify=False, hc_mode=None):
+        """Actualiza valor y nombre accesible de la celda."""
         self.value = value
         if hc_mode is not None:
             self.hc_mode = hc_mode
-        
-        # Update Accessible Name
+
         changed = False
         if nombre_accesible != self.acc_name:
             self.acc_name = nombre_accesible
             self.accessible_obj.name = self.acc_name
             changed = True
-            
-        if self.GetHandle():
-            # Crucial: Solo notificamos a Windows si la celda tiene el FOCO (notify=True)
-            # o si forzamos la repetición (force_notify=True).
-            # Si 'changed' es True pero no tiene el foco, actualizamos el nombre interno
-            # pero NO lanzamos el evento WinAPI para evitar lecturas dobles/no deseadas.
-            if (changed and notify) or force_notify:
-                 # Clean name for log
-                 nombre_log = str(self.acc_name).rstrip()
-                 logger.info(f"[WINAPI_NOTIFY] Cell {self.r},{self.c} - Name: {nombre_log} - Force: {force_notify}")
-                 user32.NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, self.GetHandle(), OBJID_CLIENT, CHILDID_SELF)
-        
+
+        if (changed and notify) or force_notify:
+            self._notify_screen_reader()
+
         self.Refresh()
 
     def on_paint(self, event):
+        """Dibuja la celda con fondo, texto y anillo de foco."""
         dc = wx.AutoBufferedPaintDC(self)
-        
-        # Determine Check Parent High Contrast logic?
-        # Ideally passed in params or checked from parent.
-        # But we don't have direct access to 'parent.alto_contraste' easily without coupling.
-        # Let's check a property or method if exists
-        
         hc_mode = self.hc_mode
 
-        # Background
+        # Fondo
         if hc_mode:
-            # Black bg, Colored Text
-            bg_color = (0,0,0)
+            bg_color = (0, 0, 0)
             dc.SetBackground(wx.Brush(wx.Colour(*bg_color)))
-            
-            # Text Color based on value map
-            val_idx = self.value
-            txt_color = self.COLORS_TEXT_HC.get(val_idx, (255, 255, 255))
-            if self.value == 0: txt_color = (0,0,0) # Invisible
-            
+            txt_color = self.COLORS_TEXT_HC.get(self.value, (255, 255, 255))
+            if self.value == 0:
+                txt_color = (0, 0, 0)
         else:
             bg_color = self.COLORS.get(self.value, (60, 58, 50))
             dc.SetBackground(wx.Brush(wx.Colour(*bg_color)))
-            
             if self.value <= 4:
                 txt_color = self.TEXT_DARK
             else:
                 txt_color = self.TEXT_LIGHT
-        
+
         dc.Clear()
-        
+
         sz = self.GetSize()
         w, h = sz.width, sz.height
         radius = 8
-        
+
         if not hc_mode:
-            # Subtle Shadow
+            # Sombra sutil
             dc.SetPen(wx.TRANSPARENT_PEN)
-            dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 40))) # Very light shadow
-            dc.DrawRoundedRectangle(3, 3, w-4, h-4, radius)
-            
-            # Main Background
+            dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0, 40)))
+            dc.DrawRoundedRectangle(3, 3, w - 4, h - 4, radius)
+            # Fondo principal
             dc.SetBrush(wx.Brush(wx.Colour(*bg_color)))
-            dc.DrawRoundedRectangle(0, 0, w-2, h-2, radius)
+            dc.DrawRoundedRectangle(0, 0, w - 2, h - 2, radius)
         else:
-            # HC Mode: Simple thick border
             dc.SetBackground(wx.Brush(wx.BLACK))
             dc.Clear()
             dc.SetPen(wx.Pen(wx.WHITE, 2))
             dc.SetBrush(wx.TRANSPARENT_BRUSH)
-            dc.DrawRoundedRectangle(1, 1, w-2, h-2, radius)
+            dc.DrawRoundedRectangle(1, 1, w - 2, h - 2, radius)
 
-        # Text Rendering
+        # Texto
         if self.value != 0:
-            # Dynamic Font Scaling based on cell height
             base_size = h // 3
             if self.value < 100:
                 font_size = base_size
@@ -143,28 +154,39 @@ class Celda(wx.Panel):
                 font_size = int(base_size * 0.8)
             else:
                 font_size = int(base_size * 0.6)
-            
-            if font_size < 8: font_size = 8 # Bottom limit
-            # Modern system font (Segoe UI on Windows)
-            font = wx.Font(font_size, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, faceName="Segoe UI")
+
+            if font_size < 8:
+                font_size = 8
+
+            font = wx.Font(font_size, wx.FONTFAMILY_DEFAULT,
+                           wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD,
+                           faceName="Segoe UI")
             if not font.IsOk():
-                font = wx.Font(font_size, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
-            
+                font = wx.Font(font_size, wx.FONTFAMILY_SWISS,
+                               wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+
             dc.SetFont(font)
             dc.SetTextForeground(wx.Colour(*txt_color))
-            
+
             txt = str(self.value)
             tw, th = dc.GetTextExtent(txt)
-            
-            # Center precisely
+
             tx = (w - tw) // 2
             ty = (h - th) // 2
             dc.DrawText(txt, tx, ty)
-            
-        # Focus Ring
+        elif hc_mode:
+            # A2-03: Indicador visual tenue para celdas vacías en HC
+            dot_font = wx.Font(h // 4, wx.FONTFAMILY_DEFAULT,
+                               wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+            dc.SetFont(dot_font)
+            dc.SetTextForeground(wx.Colour(60, 60, 60))
+            dot_txt = "·"
+            dtw, dth = dc.GetTextExtent(dot_txt)
+            dc.DrawText(dot_txt, (w - dtw) // 2, (h - dth) // 2)
+
+        # Anillo de foco
         if self.is_focused:
             focus_color = wx.Colour(0, 120, 255) if not hc_mode else wx.Colour(255, 255, 0)
             dc.SetPen(wx.Pen(focus_color, 4))
             dc.SetBrush(wx.TRANSPARENT_BRUSH)
-            # Focus ring with slightly larger padding for style
-            dc.DrawRoundedRectangle(2, 2, w-4, h-4, radius)
+            dc.DrawRoundedRectangle(2, 2, w - 4, h - 4, radius)
