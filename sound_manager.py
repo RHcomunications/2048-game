@@ -3,7 +3,6 @@ import math
 import struct
 import array
 import random
-from collections import OrderedDict
 import logging
 import platform
 import tempfile
@@ -32,9 +31,6 @@ class SoundManager:
             os.makedirs(self.temp_dir)
 
         self.sounds = {}
-        # H2-04: Caché LRU con límite de 64 entradas
-        self.dynamic_cache = OrderedDict()
-        self._cache_max = 64
         # H-09: Flag anti-duplicación para cleanup
         self._cleaned_up = False
         logging.info(f"SoundManager initialized. Temp dir: {self.temp_dir}")
@@ -150,12 +146,6 @@ class SoundManager:
         data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=0.0)
         self.sounds['MOVE'] = self._save_temp_sound('MOVE', data)
 
-        data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=-0.8)
-        self.sounds['MOVE_L'] = self._save_temp_sound('MOVE_L', data)
-
-        data = self._generate_wave(200, 400, 0.2, 0.8, pan_start=0.8)
-        self.sounds['MOVE_R'] = self._save_temp_sound('MOVE_R', data)
-
         data = self._generate_wave(100, 50, 0.3, 0.8, pan_start=0.0)
         self.sounds['INVALID'] = self._save_temp_sound('INVALID', data)
 
@@ -200,14 +190,19 @@ class SoundManager:
         elif isinstance(name_or_data, str):
             logging.warning(f"Sound not found: {name_or_data}")
 
+    # H6-02: Anclar buffer para que no sea GC'd durante playback async
+    _last_memory_buffer = None
+
     def _play_from_memory(self, data):
         """Reproduce WAV desde memoria usando WinAPI."""
         if platform.system() != 'Windows':
             return
         try:
+            # H6-02: Anclar datos para evitar GC durante playback async
+            self._last_memory_buffer = bytes(data)
             winmm = ctypes.windll.winmm
             flags = 0x0001 | 0x0004 | 0x0002  # SND_ASYNC | SND_MEMORY | SND_NODEFAULT
-            winmm.PlaySoundW(bytes(data), 0, flags)
+            winmm.PlaySoundW(self._last_memory_buffer, 0, flags)
         except Exception as e:
             logging.error(f"Memory playback failed: {e}")
             if winsound is not None:
@@ -232,23 +227,6 @@ class SoundManager:
                     logging.warning(f"Fallback audio también falló: {e2}")
         except Exception as e:
             logging.error(f"Error playing sound {filepath}: {e}")
-
-    def get_merge_sound(self, start_pan, end_pan, intensity=1):
-        """Genera un sonido dinámico de fusión con paneo e intensidad variable."""
-        cache_key = f"merge_{start_pan}_{end_pan}_{intensity}"
-        if cache_key in self.dynamic_cache:
-            return self.dynamic_cache[cache_key]
-
-        duration = 0.15 + (min(intensity, 20) * 0.02)
-        base_step = 60.0
-        start_freq = 250.0 + ((intensity - 1) * base_step)
-        sweep_range = 150.0
-        freq_end = start_freq + sweep_range
-
-        data = self._generate_wave(start_freq, freq_end, duration, 0.8,
-                                   pan_start=start_pan, pan_end=end_pan)
-        self._cache_put(cache_key, data)
-        return data
 
     def _compute_tile_sample(self, phase, freq, sample_rate, time_t):
         """Calcula un sample individual con timbre de pieza/ficha."""
@@ -302,36 +280,4 @@ class SoundManager:
 
         return self._wrap_wav_header(buf.tobytes())
 
-    def _cache_put(self, key, value):
-        """Inserta en caché LRU, evictando la entrada más antigua si excede el límite."""
-        if key in self.dynamic_cache:
-            self.dynamic_cache.move_to_end(key)
-        self.dynamic_cache[key] = value
-        while len(self.dynamic_cache) > self._cache_max:
-            self.dynamic_cache.popitem(last=False)
 
-    def get_move_sound(self, direction, intensity):
-        """Genera un sonido direccional de movimiento."""
-        cache_key = f"move_{direction}_{intensity}"
-        if cache_key in self.dynamic_cache:
-            return self.dynamic_cache[cache_key]
-
-        base_freq = 150 + (min(intensity, 10) * 10)
-
-        data = None
-        if direction == 'IZQUIERDA':
-            data = self._generate_wave(base_freq, base_freq + 100, 0.15, 0.4,
-                                       pan_start=0.0, pan_end=-0.8)
-        elif direction == 'DERECHA':
-            data = self._generate_wave(base_freq, base_freq + 100, 0.15, 0.4,
-                                       pan_start=0.0, pan_end=0.8)
-        elif direction == 'ARRIBA':
-            data = self._generate_wave(base_freq, base_freq + 150, 0.15, 0.4,
-                                       pan_start=0.0, pan_end=0.0)
-        elif direction == 'ABAJO':
-            data = self._generate_wave(base_freq + 150, base_freq, 0.15, 0.4,
-                                       pan_start=0.0, pan_end=0.0)
-
-        if data:
-            self._cache_put(cache_key, data)
-        return data

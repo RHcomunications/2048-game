@@ -40,9 +40,18 @@ class AccessibleCustom(wx.Accessible):
         return wx.ACC_FALSE, 0
 
     def GetDescription(self, childId):
+        # SR-10: Retornar vacío para evitar doble lectura en algunos SRs
+        return wx.ACC_OK, ""
+
+    def GetState(self, childId):
+        """SR-11: Exponer estado de foco para lectores de pantalla."""
         if childId == wx.ACC_SELF:
-            return wx.ACC_OK, self.name
-        return wx.ACC_FALSE, ""
+            states = wx.ACC_STATE_SYSTEM_FOCUSABLE | wx.ACC_STATE_SYSTEM_SELECTABLE
+            win = self.GetWindow()
+            if win and win.FindFocus() == win:
+                states |= wx.ACC_STATE_SYSTEM_FOCUSED
+            return wx.ACC_OK, states
+        return wx.ACC_FALSE, 0
 
 
 class Celda(wx.Panel):

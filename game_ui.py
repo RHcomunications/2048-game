@@ -63,7 +63,7 @@ class VentanaJuego(wx.Frame):
         self.wall_hit_count = 0
         self.last_wall_hit_key = None
 
-        # A-05: Toggle con zero-width space para forzar relectura del SR
+        # FIX-SR-01: Toggle de trailing spaces para forzar relectura del SR
         self._anuncio_toggle = False
 
         # E-09: Setup logging con rotación
@@ -270,7 +270,8 @@ class VentanaJuego(wx.Frame):
             info = f"Puntaje: {self.juego.puntuacion}"
             self.SetTitle(f"2048 - {info}")
             self.log_event("INFO", info)
-            self.anunciar_en_foco(info)
+            # SR-06: Usar anunciar() para que entre al historial
+            self.anunciar(info)
             return
         if letra == 'E':
             libres_count = len(self.juego.celdas_libres())
@@ -278,7 +279,8 @@ class VentanaJuego(wx.Frame):
             info = f"{libres_count} casillas libres. Máxima: {max_f}"
             self.SetTitle(f"2048 - {info}")
             self.log_event("INFO", info)
-            self.anunciar_en_foco(info)
+            # SR-06: Usar anunciar() para que entre al historial
+            self.anunciar(info)
             return
         # A3-01: Lectura rápida de fila/columna
         if letra == 'F':
@@ -374,6 +376,9 @@ class VentanaJuego(wx.Frame):
             self.cache_valores = {}
             # E3-04: Limpiar historial de anuncios de la partida anterior
             self.historial_anuncios = []
+            # P6-01: Resetear conteo de wall hits
+            self.wall_hit_count = 0
+            self.last_wall_hit_key = None
             self.iniciar_ui()
 
             self.foco_actual = [0, 0]
@@ -422,6 +427,13 @@ class VentanaJuego(wx.Frame):
 
             narrativa = ". ".join(self.juego.narrativa)
             self.mensaje_evento_pendiente = narrativa
+
+            # SR-01: Registrar narrativa en historial para revisión con L
+            if narrativa:
+                if not self.historial_anuncios or self.historial_anuncios[-1] != narrativa:
+                    self.historial_anuncios.append(narrativa)
+                    if len(self.historial_anuncios) > 20:
+                        self.historial_anuncios.pop(0)
 
             if self.verbosidad == 2 and narrativa:
                 libres = len(self.juego.celdas_libres())
@@ -536,9 +548,11 @@ class VentanaJuego(wx.Frame):
             incluir_libres = "casillas libres" not in (mensaje or "").lower()
             base_name = self._get_nombre_accesible(r, c, val, incluir_libres=incluir_libres)
 
-            # A-05: Zero-width space para forzar detección de cambio
+            # FIX-SR-01: Trailing spaces en lugar de zero-width space
+            # \u200B era leído como "?" por NVDA/JAWS. Los espacios trailing
+            # son invisibles al SR pero la API detecta el cambio de string.
             self._anuncio_toggle = not self._anuncio_toggle
-            suffix = "\u200B" if self._anuncio_toggle else ""
+            suffix = "  " if self._anuncio_toggle else " "
 
             final_name = base_name + suffix
             if mensaje:
@@ -549,8 +563,23 @@ class VentanaJuego(wx.Frame):
 
             self.botones[r][c].actualizar(val, final_name, force_notify=True)
 
+            # FIX-SR-02: Programar limpieza del nombre efímero.
+            # Sin esto, el texto del evento queda pegado al acc_name de
+            # la celda y se re-lee al navegar de vuelta.
+            if mensaje:
+                wx.CallAfter(self._limpiar_nombre_celda, r, c, val)
+
         except Exception as e:
             logging.error(f"Error anunciar foco: {e}")
+
+    def _limpiar_nombre_celda(self, r, c, val):
+        """Restaura el nombre accesible limpio (sin narrativa) en la celda."""
+        try:
+            if 0 <= r < self.tamano and 0 <= c < self.tamano:
+                nombre_limpio = self._get_nombre_accesible(r, c, val)
+                self.botones[r][c].actualizar(val, nombre_limpio)
+        except Exception as e:
+            logging.error(f"Error limpiando nombre celda {r},{c}: {e}")
 
     def actualizar_tablero(self, narrativa_inicial=False, forzar_silencio_foco=False):
         """Actualiza todas las celdas del tablero y maneja eventos."""
@@ -614,9 +643,14 @@ class VentanaJuego(wx.Frame):
                 notify_celda = es_foco and not forzar_silencio_foco
                 celda.actualizar(val, nombre_accesible, notify=notify_celda, hc_mode=self.alto_contraste)
 
-        # Consumir mensaje pendiente
+        # Consumir mensaje pendiente y programar limpieza del nombre
         if self.mensaje_evento_pendiente:
+            foco_r, foco_c = self.foco_actual
+            foco_val = self.juego.tablero[foco_r][foco_c]
             self.mensaje_evento_pendiente = ""
+            # FIX-SR-02: Limpiar el acc_name de la celda con foco tras la lectura.
+            # Sin esto, al navegar lejos y volver, se re-lee la narrativa vieja.
+            wx.CallAfter(self._limpiar_nombre_celda, foco_r, foco_c, foco_val)
 
         if narrativa_inicial:
             welcome = f"Bienvenido a 2048 Accesible. Tablero de {self.tamano} por {self.tamano} listo."
@@ -700,11 +734,12 @@ class VentanaJuego(wx.Frame):
         self.anunciar(txt)
 
     def anunciar_historial(self):
-        """Lee los últimos 20 anuncios del historial."""
+        """Lee los últimos 5 anuncios del historial (SR-04: brevedad para SR)."""
         if not self.historial_anuncios:
             self.anunciar("Historial vacío")
             return
-        ultimos = self.historial_anuncios[-20:]
+        # SR-04: Reducir de 20 a 5 para que el SR pueda leerlo rápido
+        ultimos = self.historial_anuncios[-5:]
         txt = "Historial: " + ". ".join(ultimos)
         self.anunciar(txt)
 
@@ -723,7 +758,7 @@ class VentanaJuego(wx.Frame):
         msg = """Atajos de Teclado — 2048 Accesible
 
 ═══ MOVIMIENTO DEL JUEGO ═══
-Shift + Flechas: Mover fichas en esa dirección
+Shift + Flecha (simultáneo): Mover fichas en esa dirección
   (¡Importante! Sin Shift solo navegas, no mueves fichas)
 
 ═══ NAVEGACIÓN POR EL TABLERO ═══
@@ -746,7 +781,7 @@ S: Consultar puntaje actual
 E: Consultar casillas libres y ficha máxima
 I: Resumen completo del estado
 H: Sugerencia de mejor movimiento
-L: Historial de los últimos 20 anuncios
+L: Historial de los últimos anuncios
 R: Repetir el último anuncio
 V: Cambiar nivel de verbosidad (Bajo / Normal / Alto)
 
