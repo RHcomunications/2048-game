@@ -8,14 +8,15 @@ import platform
 import tempfile
 import shutil
 import atexit
+from typing import Optional, Any, Dict
 
 # E-04: Imports condicionales para Windows
-if platform.system() == 'Windows':
-    import winsound
+try:
+    import winsound  # type: ignore[import]
     import ctypes
-else:
-    winsound = None
-    ctypes = None
+except ImportError:
+    winsound = None  # type: ignore[assignment]
+    ctypes = None  # type: ignore[assignment]
 
 
 class SoundManager:
@@ -30,7 +31,7 @@ class SoundManager:
         if not os.path.exists(self.temp_dir):
             os.makedirs(self.temp_dir)
 
-        self.sounds = {}
+        self.sounds: Dict[str, str] = {}
         # H-09: Flag anti-duplicación para cleanup
         self._cleaned_up = False
         logging.info(f"SoundManager initialized. Temp dir: {self.temp_dir}")
@@ -40,7 +41,7 @@ class SoundManager:
         # Test de audio del sistema
         if winsound is not None:
             try:
-                winsound.MessageBeep(winsound.MB_OK)
+                winsound.MessageBeep(winsound.MB_OK)  # type: ignore[attr-defined]
             except Exception as e:
                 logging.error(f"System Audio Test Failed: {e}")
 
@@ -49,7 +50,7 @@ class SoundManager:
         except Exception as e:
             logging.error(f"Pregeneration failed: {e}")
 
-        atexit.register(self.cleanup)
+        atexit.register(self.cleanup)  # type: ignore[arg-type]
 
     def cleanup(self):
         """Elimina todos los archivos temporales de sonido."""
@@ -191,7 +192,7 @@ class SoundManager:
             logging.warning(f"Sound not found: {name_or_data}")
 
     # H6-02: Anclar buffer para que no sea GC'd durante playback async
-    _last_memory_buffer = None
+    _last_memory_buffer: Optional[bytes] = None
 
     def _play_from_memory(self, data):
         """Reproduce WAV desde memoria usando WinAPI."""
@@ -200,14 +201,14 @@ class SoundManager:
         try:
             # H6-02: Anclar datos para evitar GC durante playback async
             self._last_memory_buffer = bytes(data)
-            winmm = ctypes.windll.winmm
+            winmm = ctypes.windll.winmm  # type: ignore[union-attr]
             flags = 0x0001 | 0x0004 | 0x0002  # SND_ASYNC | SND_MEMORY | SND_NODEFAULT
             winmm.PlaySoundW(self._last_memory_buffer, 0, flags)
         except Exception as e:
             logging.error(f"Memory playback failed: {e}")
             if winsound is not None:
                 try:
-                    winsound.PlaySound(data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                    winsound.PlaySound(data, winsound.SND_MEMORY | winsound.SND_ASYNC | winsound.SND_NODEFAULT)  # type: ignore[attr-defined]
                 except Exception:
                     pass
 
@@ -216,13 +217,13 @@ class SoundManager:
         if platform.system() != 'Windows':
             return
         try:
-            winmm = ctypes.windll.winmm
+            winmm = ctypes.windll.winmm  # type: ignore[union-attr]
             flags = 0x0001 | 0x00020000 | 0x0002  # SND_ASYNC | SND_FILENAME | SND_NODEFAULT
             winmm.PlaySoundW(filepath, 0, flags)
         except AttributeError:
             if winsound is not None:
                 try:
-                    winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+                    winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)  # type: ignore[attr-defined]
                 except Exception as e2:
                     logging.warning(f"Fallback audio también falló: {e2}")
         except Exception as e:

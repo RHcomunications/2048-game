@@ -7,14 +7,14 @@ import wx
 from constants import EVENT_OBJECT_NAMECHANGE, OBJID_CLIENT, CHILDID_SELF
 
 # E-04: Guard de plataforma para Windows-specific API
-if platform.system() == 'Windows':
+try:
     import ctypes
-    user32 = ctypes.windll.user32
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined]
     user32.NotifyWinEvent.argtypes = [
         ctypes.c_uint, ctypes.c_void_p, ctypes.c_long, ctypes.c_long
     ]
     user32.NotifyWinEvent.restype = None
-else:
+except (ImportError, AttributeError):
     user32 = None
 
 logger = logging.getLogger("2048_Accesible")
