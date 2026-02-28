@@ -12,7 +12,7 @@
 
 ### Navegación del Tablero
 Usa estas teclas para explorar sin realizar movimientos:
-- **Flechas**: Moverte celda por celda (A1, A2, B1, etc.)
+- **Flechas**: Moverte celda por celda (A1, B1, C1, etc. son la primera fila)
 - **Inicio / Fin**: Inicio o final de la fila actual
 - **RePág / AvPág**: Inicio o final de la columna actual
 - **Ctrl + Inicio**: Esquina superior izquierda (A1)

@@ -425,7 +425,21 @@ class VentanaJuego(wx.Frame):
         if self.juego.mover(direccion):
             self.sounds.play('MOVE')
 
-            narrativa = ". ".join(self.juego.narrativa)
+            # Estilo Oriol: Anunciar dirección del movimiento
+            dir_tr = {
+                'ARRIBA': 'Arriba',
+                'ABAJO': 'Abajo',
+                'IZQUIERDA': 'Izquierda',
+                'DERECHA': 'Derecha'
+            }
+            anuncio_dir = str(dir_tr.get(direccion, direccion))
+            
+            narrativa_raw = ". ".join(self.juego.narrativa)
+            if narrativa_raw:
+                narrativa = f"{anuncio_dir}: {narrativa_raw}"
+            else:
+                narrativa = anuncio_dir
+                
             self.mensaje_evento_pendiente = narrativa
 
             # SR-01: Registrar narrativa en historial para revisión con L
@@ -548,11 +562,12 @@ class VentanaJuego(wx.Frame):
             incluir_libres = "casillas libres" not in (mensaje or "").lower()
             base_name = self._get_nombre_accesible(r, c, val, incluir_libres=incluir_libres)
 
-            # FIX-SR-01: Trailing spaces en lugar de zero-width space
-            # \u200B era leído como "?" por NVDA/JAWS. Los espacios trailing
-            # son invisibles al SR pero la API detecta el cambio de string.
+            # FIX-SR-01b: Non-breaking space como toggle invisible.
+            # \u200B era leído como "?" por NVDA/JAWS.
+            # Trailing spaces se colapsaban y el SR no detectaba cambio.
+            # \u00A0 es invisible al SR pero la API detecta el cambio de string.
             self._anuncio_toggle = not self._anuncio_toggle
-            suffix = "  " if self._anuncio_toggle else " "
+            suffix = "\u00A0" if self._anuncio_toggle else ""
 
             final_name = base_name + suffix
             if mensaje:
@@ -567,7 +582,8 @@ class VentanaJuego(wx.Frame):
             # Sin esto, el texto del evento queda pegado al acc_name de
             # la celda y se re-lee al navegar de vuelta.
             if mensaje:
-                wx.CallAfter(self._limpiar_nombre_celda, r, c, val)
+                # FIX-SR-03: Dar 300ms al SR para leer antes de limpiar
+                wx.CallLater(300, self._limpiar_nombre_celda, r, c, val)
 
         except Exception as e:
             logging.error(f"Error anunciar foco: {e}")
@@ -650,7 +666,8 @@ class VentanaJuego(wx.Frame):
             self.mensaje_evento_pendiente = ""
             # FIX-SR-02: Limpiar el acc_name de la celda con foco tras la lectura.
             # Sin esto, al navegar lejos y volver, se re-lee la narrativa vieja.
-            wx.CallAfter(self._limpiar_nombre_celda, foco_r, foco_c, foco_val)
+            # FIX-SR-03: Dar 300ms al SR para leer antes de limpiar
+            wx.CallLater(300, self._limpiar_nombre_celda, foco_r, foco_c, foco_val)
 
         if narrativa_inicial:
             welcome = f"Bienvenido a 2048 Accesible. Tablero de {self.tamano} por {self.tamano} listo."
@@ -714,7 +731,7 @@ class VentanaJuego(wx.Frame):
         """Lee todos los valores de la fila donde está el foco."""
         r = self.foco_actual[0]
         fila_letter = chr(ord('A') + r)
-        valores = []
+        valores: list[str] = []
         for c in range(self.tamano):
             val = self.juego.tablero[r][c]
             valores.append(str(val) if val != 0 else "Libre")
@@ -726,7 +743,7 @@ class VentanaJuego(wx.Frame):
         """Lee todos los valores de la columna donde está el foco."""
         c = self.foco_actual[1]
         col_num = c + 1
-        valores = []
+        valores: list[str] = []
         for r in range(self.tamano):
             val = self.juego.tablero[r][c]
             valores.append(str(val) if val != 0 else "Libre")
@@ -739,7 +756,7 @@ class VentanaJuego(wx.Frame):
             self.anunciar("Historial vacío")
             return
         # SR-04: Reducir de 20 a 5 para que el SR pueda leerlo rápido
-        ultimos = self.historial_anuncios[-5:]
+        ultimos = self.historial_anuncios[-5:]  # type: ignore
         txt = "Historial: " + ". ".join(ultimos)
         self.anunciar(txt)
 
@@ -820,9 +837,9 @@ Numpad 2/4/6/8 (NumLock activo): Mover fichas directamente."""
             return txt_val
 
         elif self.verbosidad == 2:  # Alto
-            fila = coord[0]
-            col = coord[1:]
-            base = f"Fila {fila} Columna {col}: {txt_val}"
+            col = coord[0]
+            fila = coord[1:]
+            base = f"Columna {col} Fila {fila}: {txt_val}"
             if val == 0 and incluir_libres:
                 count = len(self.juego.celdas_libres())
                 base += f". {count} casillas libres"

@@ -274,9 +274,9 @@ class SoundManager:
 
                 sample_val = max(-32767, min(32767, int(val * 32767.0 * vol * env)))
 
-                buf[buf_idx] = sample_val
-                buf[buf_idx + 1] = sample_val
-                buf_idx += 2
+                buf[buf_idx] = sample_val  # type: ignore
+                buf[buf_idx + 1] = sample_val  # type: ignore
+                buf_idx += 2  # type: ignore
 
         return self._wrap_wav_header(buf.tobytes())
 

@@ -12,6 +12,14 @@ class TestCoordNombre(unittest.TestCase):
     def test_esquina_superior_izquierda(self):
         self.assertEqual(coord_nombre(0, 0), "A1")
 
+    def test_fila_uno_columna_dos(self):
+        # En el nuevo sistema: Fila 0, Col 1 es B1
+        self.assertEqual(coord_nombre(0, 1), "B1")
+
+    def test_fila_dos_columna_uno(self):
+        # En el nuevo sistema: Fila 1, Col 0 es A2
+        self.assertEqual(coord_nombre(1, 0), "A2")
+
     def test_esquina_inferior_derecha_4x4(self):
         self.assertEqual(coord_nombre(3, 3), "D4")
 
@@ -401,7 +409,7 @@ class TestAplicarMovimiento(unittest.TestCase):
             [0, 0, 0, 0],
             [0, 0, 0, 0]
         ]
-        tablero_copia = [row[:] for row in tablero_orig]
+        tablero_copia = [list(row) for row in tablero_orig]
         self.game._aplicar_movimiento(tablero_orig, 'IZQUIERDA')
         self.assertEqual(tablero_orig, tablero_copia)
 
@@ -428,6 +436,54 @@ class TestAplicarMovimiento(unittest.TestCase):
         ]
         _, cambio, _, _, _, _ = self.game._aplicar_movimiento(tablero, 'IZQUIERDA')
         self.assertFalse(cambio)
+
+
+class TestNarrativa(unittest.TestCase):
+    def setUp(self):
+        self.game = Logica2048(tamano=4)
+
+    def test_narrativa_normal_minimalista(self):
+        """Verificar formato 'Val en Coord' en verbosidad 1."""
+        self.game.verbosidad = 1
+        self.game.tablero = [
+            [2, 2, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0]
+        ]
+        self.game.mover('IZQUIERDA')
+        # Buscamos '4 en A1' en la narrativa
+        self.assertTrue(any("4 en A1" in n for n in self.game.narrativa), 
+                        f"Se esperaba '4 en A1' en {self.game.narrativa}")
+        # Buscamos 'Apareció un' en la narrativa
+        self.assertTrue(any("Apareció un" in n for n in self.game.narrativa),
+                        f"Se esperaba 'Apareció un' en {self.game.narrativa}")
+
+    def test_narrativa_alto_detalle(self):
+        """Verificar formato 'Val en Coord (O1 + O2)' en verbosidad 2."""
+        self.game.verbosidad = 2
+        self.game.tablero = [
+            [2, 2, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0]
+        ]
+        self.game.mover('IZQUIERDA')
+        # Buscamos '4 en A1 (A1 + B1)'
+        self.assertTrue(any("4 en A1 (A1 + B1)" in n for n in self.game.narrativa),
+                        f"Se esperaba '4 en A1 (A1 + B1)' en {self.game.narrativa}")
+
+    def test_narrativa_bajo_resumen(self):
+        """Verificar resumen cuantitativo en verbosidad 0."""
+        self.game.verbosidad = 0
+        self.game.tablero = [
+            [2, 2, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0]
+        ]
+        self.game.mover('IZQUIERDA')
+        self.assertTrue(any("Ficha 4 fusionada" == n for n in self.game.narrativa))
 
 
 if __name__ == '__main__':

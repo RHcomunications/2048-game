@@ -6,10 +6,12 @@ from typing import List, Dict, Any, Tuple, Optional
 from constants import ARCHIVO_GUARDADO, ARCHIVO_AJUSTES, VALOR_VICTORIA
 
 def coord_nombre(r: int, c: int) -> str:
-    """Convierte coordenadas (r, c) a notación humana, e.g., A1, B3."""
-    fila = chr(ord('A') + r)
-    col = c + 1
-    return f"{fila}{col}"
+    """Convierte coordenadas (r, c) a notación humana (Standard: A1, B2...).
+    Letra = Columna, Número = Fila.
+    """
+    col_letra = chr(ord('A') + c)
+    fila_num = r + 1
+    return f"{col_letra}{fila_num}"
 
 
 class Logica2048:
@@ -181,61 +183,70 @@ class Logica2048:
         return [(r, c) for r in range(self.tamano) for c in range(self.tamano)
                 if self.tablero[r][c] == 0]
 
-    def procesar_linea(self, linea: List[int]) -> Tuple[List[int], List[Tuple[int, int, int]], int, int]:
+    def procesar_linea(self, linea: List[int]) -> Tuple[List[int], List[Tuple[int, int, int, int]], int, int]:
         """
         Procesa una fila o columna para movimiento y fusión.
 
         Returns:
             Tupla con:
             - La nueva línea (list de ints)
-            - Lista de detalles de fusión (valor, índice_destino, índice_origen)
+            - Lista de detalles de fusión (valor, indice_orig1, indice_orig2, indice_final)
             - Total de puntos ganados
             - Cantidad de fichas que cambiaron de posición
         """
-        # Compactar: quitar ceros
-        compacta: List[int] = [val for val in linea if val != 0]
-        pts: int = 0
-        fusiones: List[Tuple[int, int, int]] = []
+        # Compactar: quitar ceros pero recordar índices originales
+        fichas: List[Tuple[int, int]] = []
+        for i, val in enumerate(linea):
+            if val != 0:
+                fichas.append((val, i))
 
-        # Fusionar pares adyacentes (izquierda primero)
+        pts: int = 0
+        fusiones: List[Tuple[int, int, int, int]] = []
+        compacta: List[int] = []
+        
+        # Procesar fusiones
         i = 0
-        while i < len(compacta) - 1:
-            if compacta[i] == compacta[i + 1]:
-                val: int = compacta[i] * 2
-                compacta[i] = val
-                compacta.pop(i + 1)
-                pts += val
-                fusiones.append((val, i, i + 1))
-                i += 1
+        while i < len(fichas):
+            val1, idx1 = fichas[i]
+            if i + 1 < len(fichas) and val1 == fichas[i + 1][0]:
+                val_res = val1 * 2
+                idx2 = fichas[i + 1][1]
+                idx_final = len(compacta)
+                compacta.append(val_res)
+                pts += val_res  # type: ignore
+                fusiones.append((val_res, idx1, idx2, idx_final))
+                i += 2
             else:
+                compacta.append(val1)
                 i += 1
 
         # Rellenar con ceros
         resultado = compacta + [0] * (len(linea) - len(compacta))
 
         # H-05: Contar fichas que realmente cambiaron de posición
+        # (Consideramos "movida" si el valor en esa posición cambió)
         fichas_movidas: int = 0
         for idx in range(len(linea)):
             if linea[idx] != resultado[idx]:
-                fichas_movidas += 1
+                fichas_movidas += 1  # type: ignore
 
         return resultado, fusiones, pts, fichas_movidas
 
     # ─── E-01: Método unificado para aplicar movimiento a un tablero ───
 
     def _aplicar_movimiento(self, tablero: List[List[int]], direccion: str
-                            ) -> Tuple[List[List[int]], bool, int, List[Tuple[int, int, int, int, int]], int, int]:
+                            ) -> Tuple[List[List[int]], bool, int, List[Tuple[int, int, int, int, int, int, int]], int, int]:
         """
         Aplica un movimiento a una COPIA del tablero.
 
         Returns:
             (nuevo_tablero, cambio, puntos, fusiones_detalladas, moved_count, merge_count)
-            fusiones_detalladas: [(val, fila_real, col_real, src_pan_idx, dest_pan_idx), ...]
+            fusiones_detalladas: [(val, r1, c1, r2, c2, r_dest, c_dest), ...]
         """
-        nuevo = [fila[:] for fila in tablero]
+        nuevo = [list(fila) for fila in tablero]
         cambio = False
         puntos_total = 0
-        fusiones_det: List[Tuple[int, int, int, int, int]] = []
+        fusiones_det: List[Tuple[int, int, int, int, int, int, int]] = []
         total_moved = 0
         total_merges = 0
 
@@ -246,11 +257,11 @@ class Logica2048:
                 if procesada != linea:
                     cambio = True
                 nuevo[r] = procesada
-                puntos_total += pts
-                total_moved += movs
-                for val, dest_idx, src_idx in f_list:
-                    fusiones_det.append((val, r, dest_idx, src_idx, dest_idx))
-                    total_merges += 1
+                puntos_total += pts  # type: ignore
+                total_moved += movs  # type: ignore
+                for val, idx1, idx2, idx_f in f_list:
+                    fusiones_det.append((val, r, idx1, r, idx2, r, idx_f))
+                    total_merges += 1  # type: ignore
 
         elif direccion == 'DERECHA':
             for r in range(self.tamano):
@@ -260,28 +271,29 @@ class Logica2048:
                 if procesada != nuevo[r]:
                     cambio = True
                 nuevo[r] = procesada
-                puntos_total += pts
-                total_moved += movs
-                for val, rev_dest_idx, rev_src_idx in f_list:
-                    real_col = self.tamano - 1 - rev_dest_idx
-                    fusiones_det.append((val, r, real_col,
-                                        self.tamano - 1 - rev_src_idx,
-                                        real_col))
-                    total_merges += 1
+                puntos_total += pts  # type: ignore
+                total_moved += movs  # type: ignore
+                for val, idx1, idx2, idx_f in f_list:
+                    c1 = self.tamano - 1 - idx1
+                    c2 = self.tamano - 1 - idx2
+                    cf = self.tamano - 1 - idx_f
+                    fusiones_det.append((val, r, c1, r, c2, r, cf))
+                    total_merges += 1  # type: ignore
 
         elif direccion == 'ARRIBA':
             for c in range(self.tamano):
                 columna = [nuevo[r][c] for r in range(self.tamano)]
                 procesada, f_list, pts, movs = self.procesar_linea(columna)
                 for r in range(self.tamano):
-                    if nuevo[r][c] != procesada[r]:
+                    fila_mod = nuevo[r]
+                    if fila_mod[c] != procesada[r]:  # type: ignore
                         cambio = True
-                    nuevo[r][c] = procesada[r]
-                puntos_total += pts
-                total_moved += movs
-                for val, dest_row, src_row in f_list:
-                    fusiones_det.append((val, dest_row, c, c, c))
-                    total_merges += 1
+                    fila_mod[c] = procesada[r]  # type: ignore
+                puntos_total += pts  # type: ignore
+                total_moved += movs  # type: ignore
+                for val, idx1, idx2, idx_f in f_list:
+                    fusiones_det.append((val, idx1, c, idx2, c, idx_f, c))
+                    total_merges += 1  # type: ignore
 
         elif direccion == 'ABAJO':
             for c in range(self.tamano):
@@ -290,39 +302,59 @@ class Logica2048:
                 procesada_rev, f_list, pts, movs = self.procesar_linea(col_rev)
                 procesada = list(reversed(procesada_rev))
                 for r in range(self.tamano):
-                    if nuevo[r][c] != procesada[r]:
+                    fila_mod = nuevo[r]
+                    if fila_mod[c] != procesada[r]:  # type: ignore
                         cambio = True
-                    nuevo[r][c] = procesada[r]
-                puntos_total += pts
-                total_moved += movs
-                for val, rev_dest_row, rev_src_row in f_list:
-                    real_row = self.tamano - 1 - rev_dest_row
-                    fusiones_det.append((val, real_row, c, c, c))
-                    total_merges += 1
+                    fila_mod[c] = procesada[r]  # type: ignore
+                puntos_total += pts  # type: ignore
+                total_moved += movs  # type: ignore
+                for val, idx1, idx2, idx_f in f_list:
+                    r1 = self.tamano - 1 - idx1
+                    r2 = self.tamano - 1 - idx2
+                    rf = self.tamano - 1 - idx_f
+                    fusiones_det.append((val, r1, c, r2, c, rf, c))
+                    total_merges += 1  # type: ignore
 
         return nuevo, cambio, puntos_total, fusiones_det, total_moved, total_merges
 
     def mover(self, direccion: str) -> bool:
         """Ejecuta un movimiento en la dirección dada. Retorna True si hubo cambio."""
         # Guardar estado para Undo
-        tablero_ant = [f[:] for f in self.tablero]
+        tablero_ant = [list(f) for f in self.tablero]
         score_ant = self.puntuacion
         max_ant = self.max_ficha
         ganado_ant = self.ganado
         victoria_anunciada_ant = self.victoria_anunciada
-        hitos_ant = self.hitos_alcanzados[:]
+        hitos_ant = list(self.hitos_alcanzados)
 
         nuevo_tablero, cambio, pts, fusiones_det, moved, merges = \
             self._aplicar_movimiento(self.tablero, direccion)
 
         if cambio:
-            self.puntuacion += pts
+            self.puntuacion += pts  # type: ignore
 
-            # Construir narrativa
-            msgs_fusiones: List[str] = []
-            for val, row, col, src_pan_idx, dest_pan_idx in fusiones_det:
-                coord = coord_nombre(row, col)
-                msgs_fusiones.append(f"{val} se fusionó en {coord}")
+            # Construir narrativa según verbosidad
+            final_narrative: List[str] = []
+
+            if self.verbosidad == 0:  # Bajo: Consolidado
+                counts: Dict[int, int] = {}
+                for val, _, _, _, _, _, _ in fusiones_det:
+                    counts[val] = counts.get(val, 0) + 1
+                for val, count in counts.items():
+                    if count > 1:
+                        final_narrative.append(f"{count} fichas {val} fusionadas")
+                    else:
+                        final_narrative.append(f"Ficha {val} fusionada")
+            elif self.verbosidad == 1:  # Normal: Minimalista (Estilo Oriol)
+                for val, _, _, _, _, rf, cf in fusiones_det:
+                    coordf = coord_nombre(rf, cf)
+                    final_narrative.append(f"{val} en {coordf}")
+            else:  # Alto: Minimalista + Origen
+                for val, r1, c1, r2, c2, rf, cf in fusiones_det:
+                    coord1 = coord_nombre(r1, c1)
+                    coord2 = coord_nombre(r2, c2)
+                    coordf = coord_nombre(rf, cf)
+                    final_narrative.append(f"{val} en {coordf} ({coord1} + {coord2})")
 
             # History (máximo 3 estados)
             if len(self.history) >= 3:
@@ -351,36 +383,10 @@ class Logica2048:
             if new_tile and self.verbosidad > 0:
                 r, c, val = new_tile
                 coord = coord_nombre(r, c)
-                msgs_fusiones.append(f"Se añadió {val} a {coord}")
+                final_narrative.append(f"Apareció un {val} en {coord}")
 
             self.actualizar_max_ficha()
-
-            # Construir narrativa final
-            if merges > 0:
-                counts: Dict[str, int] = {}
-                for m in msgs_fusiones:
-                    if "fusionó" in m:
-                        val_str = m.split(" ")[0]
-                        counts[val_str] = counts.get(val_str, 0) + 1
-
-                final_narrative: List[str] = []
-                for val_str, count in counts.items():
-                    if count > 1:
-                        final_narrative.append(f"{count} fichas {val_str} fusionadas")
-                    else:
-                        for m in msgs_fusiones:
-                            if m.startswith(f"{val_str} "):
-                                final_narrative.append(m)
-                                break
-
-                for m in msgs_fusiones:
-                    if "añadió" in m:
-                        final_narrative.append(m)
-
-                self.narrativa = final_narrative
-            else:
-                self.narrativa = msgs_fusiones
-
+            self.narrativa = final_narrative
             self.guardar_juego_estado()
             return True
         else:
@@ -436,7 +442,7 @@ class Logica2048:
                 esquinas = [(0, 0), (0, self.tamano - 1),
                             (self.tamano - 1, 0), (self.tamano - 1, self.tamano - 1)]
                 if max_pos in esquinas:
-                    valor += max_t * 2.0
+                    valor += max_t * 2.0  # type: ignore
 
                 if valor > mejor_valor_heuristico:
                     mejor_valor_heuristico = valor
