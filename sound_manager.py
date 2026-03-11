@@ -176,6 +176,15 @@ class SoundManager:
         data = self._generate_sequence(restart_freqs, 0.05, 0.4)
         self.sounds['RESTART'] = self._save_temp_sound('RESTART', data)
 
+        # EVT-01: Sonido de guardado (chime ascendente de 2 notas)
+        save_notes = [523.25, 783.99]
+        data = self._generate_sequence(save_notes, 0.08, 0.4)
+        self.sounds['SAVE'] = self._save_temp_sound('SAVE', data)
+
+        # EVT-02: Sonido de cambio de verbosidad (tick neutro)
+        data = self._generate_wave(660, 660, 0.04, 0.3)
+        self.sounds['VERBOSITY'] = self._save_temp_sound('VERBOSITY', data)
+
     def play(self, name_or_data):
         """Reproduce un sonido por nombre predefinido o datos WAV crudos."""
         filepath = None

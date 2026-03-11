@@ -317,10 +317,9 @@ class VentanaJuego(wx.Frame):
         if code == ord('S'):
             self.juego.guardar_juego_estado()
             self.log_event("SAVE", "Juego guardado manualmente.")
-            # A2-05: Siempre dar feedback de guardado (sonido + anuncio)
-            self.sounds.play('TOGGLE_ON')
-            if self.verbosidad >= 1:
-                self.anunciar("Juego guardado")
+            # EVT-03: Sonido dedicado de guardado + anuncio siempre
+            self.sounds.play('SAVE')
+            self.anunciar("Juego guardado")
             return True
 
         if code == ord('R'):
@@ -330,13 +329,13 @@ class VentanaJuego(wx.Frame):
         if code == ord('Z'):
             if self.juego.deshacer():
                 self.sounds.play('UNDO')
-                if self.verbosidad >= 1:
-                    self.mensaje_evento_pendiente = "Deshacer"
+                # EVT-04: Siempre anunciar deshacer (acción de sistema)
+                self.mensaje_evento_pendiente = "Deshacer"
                 self.actualizar_tablero()
             else:
                 self.sounds.play('INVALID')
-                if self.verbosidad >= 1:
-                    self.anunciar("No se puede deshacer")
+                # EVT-04: Siempre anunciar fallo de deshacer
+                self.anunciar("No se puede deshacer")
             return True
 
         return False
@@ -515,6 +514,18 @@ class VentanaJuego(wx.Frame):
                 self.anunciar_en_foco()
             else:
                 self.log_event("FOCUS_CHANGE", f"Target: {r},{c}")
+                # FIX-DUP-01: Limpiar nombre accesible de la celda anterior
+                # para que no retenga narrativa vieja si el usuario vuelve.
+                old_r, old_c = self.foco_actual
+                if 0 <= old_r < self.tamano and 0 <= old_c < self.tamano:
+                    old_val = self.juego.tablero[old_r][old_c]
+                    old_nombre = self._get_nombre_accesible(old_r, old_c, old_val)
+                    self.botones[old_r][old_c].actualizar(old_val, old_nombre)
+                # FIX-DUP-02: Asegurar nombre limpio en celda destino antes
+                # de dar foco, para que el SR no lea texto residual.
+                val = self.juego.tablero[r][c]
+                nombre = self._get_nombre_accesible(r, c, val)
+                self.botones[r][c].actualizar(val, nombre)
                 self.botones[r][c].SetFocus()
                 self.foco_actual = [r, c]
             self._actualizar_foco_visual()
@@ -592,8 +603,11 @@ class VentanaJuego(wx.Frame):
         """Restaura el nombre accesible limpio (sin narrativa) en la celda."""
         try:
             if 0 <= r < self.tamano and 0 <= c < self.tamano:
-                nombre_limpio = self._get_nombre_accesible(r, c, val)
-                self.botones[r][c].actualizar(val, nombre_limpio)
+                # FIX-DUP-03: Usar valor actual del tablero, no el capturado
+                # al agendar el timer, para evitar datos obsoletos.
+                val_actual = self.juego.tablero[r][c]
+                nombre_limpio = self._get_nombre_accesible(r, c, val_actual)
+                self.botones[r][c].actualizar(val_actual, nombre_limpio)
         except Exception as e:
             logging.error(f"Error limpiando nombre celda {r},{c}: {e}")
 
@@ -705,13 +719,15 @@ class VentanaJuego(wx.Frame):
             if isinstance(child, wx.Panel):
                 child.SetBackgroundColour(bg)
 
-        self.anunciar(f"Alto Contraste {state}")
         self.juego.guardar_ajustes()
-
         self.cache_valores = {}
         self.Refresh()
-        self.mensaje_evento_pendiente = ""
-        self.actualizar_tablero(forzar_silencio_foco=True)
+        # FIX-EVT-01: Usar mensaje_evento_pendiente para que el anuncio
+        # sobreviva a actualizar_tablero() y el SR lo pueda leer.
+        msg = f"Alto Contraste {state}"
+        self.mensaje_evento_pendiente = msg
+        self._registrar_historial(msg)
+        self.actualizar_tablero()
 
     def toggle_verbosity(self):
         """Cicla entre los tres niveles de verbosidad."""
@@ -719,10 +735,27 @@ class VentanaJuego(wx.Frame):
         self.juego.verbosidad = self.verbosidad
         modes = ["Bajo", "Normal", "Alto"]
         mode = modes[self.verbosidad]
-        self.anunciar(f"Verbosidad: {mode}")
+        # EVT-05: Sonido dedicado para cambio de verbosidad
+        self.sounds.play('VERBOSITY')
         self.juego.guardar_ajustes()
-        self.mensaje_evento_pendiente = ""
-        self.actualizar_tablero(forzar_silencio_foco=True)
+        # FIX-EVT-02: Limpiar caché porque los nombres accesibles
+        # cambian de formato al cambiar verbosidad.
+        self.cache_valores = {}
+        # Usar mensaje_evento_pendiente para que el SR lo lea.
+        msg = f"Verbosidad: {mode}"
+        self.mensaje_evento_pendiente = msg
+        self._registrar_historial(msg)
+        self.actualizar_tablero()
+
+    def _registrar_historial(self, mensaje):
+        """Registra un mensaje en el historial de anuncios y en el log."""
+        if not mensaje:
+            return
+        self.log_event("ANNOUNCE", mensaje)
+        if not self.historial_anuncios or self.historial_anuncios[-1] != mensaje:
+            self.historial_anuncios.append(mensaje)
+            if len(self.historial_anuncios) > 20:
+                self.historial_anuncios.pop(0)
 
     # ─── Historial, Lectura Rápida y Anuncios ───
 
