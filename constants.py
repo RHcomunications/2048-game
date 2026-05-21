@@ -1,11 +1,9 @@
-"""Constants and configuration for the 2048 project."""
+"""Constants and configuration for the 2048 Accessible project."""
 
 # Game Configuration
-ARCHIVO_GUARDADO = "savegame.json"
-ARCHIVO_AJUSTES = "settings.json"
 VALOR_VICTORIA = 2048
 
-# UI Colors - Standard (A-06: Improved contrast ratios)
+# UI Colors - Standard
 COLOR_FONDO_TABLERO = (187, 173, 160)
 COLORES_FONDO = {
     0: (205, 193, 180),
@@ -20,7 +18,6 @@ COLORES_FONDO = {
     512: (237, 200, 80),
     1024: (237, 197, 63),
     2048: (237, 194, 46),
-    # E2-03: Colores diferenciados para fichas > 2048
     4096: (231, 76, 60),
     8192: (142, 68, 173),
     16384: (41, 128, 185),
@@ -29,11 +26,11 @@ COLORES_FONDO = {
     131072: (192, 57, 43),
 }
 
-# A-06: Texto más oscuro para fichas claras, más brillante para oscuras
-COLOR_TEXTO_OSCURO = (80, 70, 60)       # ratio ≥ 4.6:1
-COLOR_TEXTO_CLARO = (255, 255, 255)     # blanco puro
+# Improved contrast ratios for text
+COLOR_TEXTO_OSCURO = (80, 70, 60)       # ratio >= 4.6:1
+COLOR_TEXTO_CLARO = (255, 255, 255)     # white
 
-# A-09 / H-10: Colores HC con mejor contraste y cobertura hasta 131072
+# High Contrast Colors for high-contrast mode (HC)
 COLORES_TEXTO_HC = {
     2: (0, 255, 255),       # Cyan
     4: (255, 255, 0),       # Yellow

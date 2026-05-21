@@ -2,6 +2,26 @@
 
 Todos los cambios notables de este proyecto se documentan en este archivo.
 
+## [3.0.0] — 2026-05-21
+
+### ✨ Características y Mejoras Core
+- **Reescritura de Arquitectura Completa**: Reducción de más de un 40% del código fuente original (~1850 a ~1100 líneas). Estricta separación de responsabilidades (Modelo/Vista/Controlador). Eliminados comentarios internos redundantes de depuración.
+- **Sonidos 100% en Memoria**: Rediseño del motor de audio (`SoundManager`) que genera y reproduce todas las secuencias directamente desde búferes de memoria mediante WinAPI nativa, eliminando por completo los archivos temporales WAV en disco y mejorando el rendimiento.
+- **Almacenamiento Seguro (APPDATA)**: El progreso de la partida (`savegame.json`), configuración de accesibilidad (`settings.json`) y logs (`game_events.log`) se han movido a la carpeta de usuario `%APPDATA%\2048_Accesible`, cumpliendo con las mejores prácticas y estándares de seguridad.
+- **Bitácora Rotativa**: Registro rotativo de logs (`game_events.log`) con límite de 1 MB y 3 rotaciones de respaldo, previniendo el crecimiento excesivo de logs en disco.
+- **Mapeo de Coordenadas Coherente**: Fila = números (1-indexed), Columna = letras (A-J), resolviendo inconsistencias al consultar e interactuar con el tablero.
+
+### ♿ Accesibilidad y Lector de Pantalla
+- **Verbosidad Baja Mejorada**: En verbosidad baja (nivel 0) ahora se anuncia la coordenada simplificada (ej. `A1 4` en lugar de sólo `4`), asegurando que los usuarios invidentes siempre sepan dónde está su foco.
+- **Sistema de Anuncio Unificado**: Arquitectura de anuncio de canal único que evita duplicaciones y sincroniza de forma limpia la relectura nativa mediante WinAPI `NotifyWinEvent`.
+- **Foco Visual HC**: Los estados de Alto Contraste adaptan dinámicamente los paneles, celdas y anillos visuales de foco de forma inmediata y anuncian cada acción del sistema de forma coherente.
+
+### 🔧 Calidad de Código y Pruebas
+- **Type Safety**: Eliminados masivamente todos los comentarios `# type: ignore` silenciados mediante una tipación fuerte y el uso de dataclasses (`MoveResult`).
+- **Pruebas de Lógica Actualizadas**: Cobertura completa adaptada a la nueva arquitectura `MoveResult` y validando rigurosamente todos los edge cases de movimiento y deshacer.
+
+---
+
 ## [1.0.0] — 2026-02-17
 
 ### ✨ Características
@@ -16,38 +36,3 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 - Historial de anuncios (últimos 20) con tecla L
 - Repetir último anuncio con tecla R
 - Tres niveles de verbosidad (Bajo / Normal / Alto)
-
-### 🎨 Interfaz
-- Modo Alto Contraste (F5) con colores optimizados por ficha
-- Indicadores visuales de celdas vacías en modo HC (borde punteado)
-- Fuente escalable dinámicamente según tamaño de tablero
-- Esquinas redondeadas y sombras en fichas
-- Anillo de foco visible para navegación por teclado
-
-### 🔊 Audio
-- Efectos de sonido estéreo dinámicos para movimiento, fusión, undo, victoria y game over
-- Frecuencia de sonido proporcional al valor de la ficha fusionada
-- Caché LRU para sonidos generados dinámicamente
-- Auto-limpieza de archivos temporales de audio al salir
-
-### 💾 Persistencia
-- Guardado automático después de cada movimiento
-- Guardado atómico (escritura temporal + renombrado) para prevenir corrupción
-- Carga robusta con saneamiento de tipos y validación de tamaño de tablero
-- Separación de configuración (`settings.json`) y estado de juego (`savegame.json`)
-- Deshacer hasta 3 movimientos (Ctrl+Z)
-
-### ♿ Accesibilidad
-- Notificaciones nativas de Windows (WinAPI) para lectores de pantalla
-- Narrativa proactiva: bienvenida, game over, victoria con resumen completo
-- Narrativa de fusiones consolidada (ej. "3 fichas 4 fusionadas")
-- Atajos de teclado sin modificador para información rápida (S, E, I, H, V)
-- Soporte para Numpad (NumLock activo) como alternativa de movimiento
-- Atajos case-insensitive (funcionan con CapsLock)
-
-### 🔧 Calidad de Código
-- 7 pases de auditoría exhaustivos (56+ hallazgos identificados y corregidos)
-- 45 pruebas unitarias cubriendo lógica de juego, serialización y análisis
-- Código modular: `game_logic.py`, `game_ui.py`, `ui_components.py`, `sound_manager.py`, `constants.py`
-- Limpieza de ~50 líneas de código muerto en el último pase
-- Type hints completos y docstrings en español

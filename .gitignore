@@ -27,10 +27,13 @@ ENV/
 
 # PyInstaller
 *.spec
+!2048_Accesible.spec
 
 # Game Specific
 game_events.log
+game_events.log.*
 savegame.json
+settings.json
 *.zip
 .2048_sounds/
 

@@ -1,12 +1,11 @@
-# 2048 Accesible — Platinum Edition v1.0.0
+# 2048 Accesible — Edición Profesional v3.0.0
 
 ¡Bienvenido a **2048 Accesible**! Una versión diseñada específicamente para ser jugada con lectores de pantalla y ofrecer una experiencia fluida y gratificante.
 
 ## 🚀 Cómo Empezar
-1. Descarga el archivo `.zip` de la [última release](https://github.com/RHcomunications/2048-game/releases/latest).
-2. Extrae el contenido en cualquier carpeta.
-3. Ejecuta `2048_Accesible_Platinum.exe`.
-4. Elige el tamaño de tablero (4×4 por defecto) y ¡a jugar!
+1. Descarga el archivo de la [última release](https://github.com/RHcomunications/2048-game/releases/latest).
+2. Ejecuta `2048_Accesible.exe`.
+3. Elige el tamaño de tablero (4×4 por defecto) y ¡a jugar!
 
 ## 🎮 Controles de Juego
 
@@ -31,7 +30,7 @@ Usa estas teclas para explorar sin realizar movimientos:
 | **E** | Casillas libres + ficha máxima |
 | **I** | Resumen completo del estado |
 | **H** | Sugerencia de mejor movimiento |
-| **L** | Historial (últimos 20 anuncios) |
+| **L** | Historial (últimos 5 anuncios) |
 | **R** | Repetir último anuncio |
 | **V** | Cambiar verbosidad (Bajo/Normal/Alto) |
 | **F** | Leer todos los valores de la fila actual |
@@ -48,15 +47,14 @@ Usa estas teclas para explorar sin realizar movimientos:
 | **Esc** | Salir (guardado automático) |
 
 ## 📝 Notas Técnicas
-- **Guardado Automático**: Progreso en `savegame.json`. En Game Over se borra para empezar de cero.
-- **Configuración**: Verbosidad y alto contraste se guardan en `settings.json`.
-- **Portable**: Sin instalación, llévalo en un USB.
-- **Logs**: `game_events.log` registra cada acción para depuración.
+- **Almacenamiento Seguro**: El progreso (`savegame.json`), configuración (`settings.json`) y bitácora (`game_events.log`) se guardan en el directorio del usuario `%APPDATA%\2048_Accesible` cumpliendo con las pautas de Windows.
+- **Audio en Memoria**: Todos los sonidos se sintetizan dinámicamente y se reproducen directamente desde memoria sin crear archivos WAV temporales en disco.
+- **Logs**: `game_events.log` registra cada acción para depuración de forma rotatoria para evitar que consuma espacio innecesario.
 
 ## 🛠️ Desarrollo
 - Python 3.8+ · wxPython 4.x · Windows (winsound + ctypes.windll)
-- Tests: `python -m unittest test_game_logic -v` (45 tests)
-- Build: `python -m PyInstaller 2048_Accesible_Platinum.spec --clean --noconfirm`
+- Tests: `python -m unittest test_game_logic -v`
+- Build: `python -m PyInstaller 2048_Accesible.spec --clean --noconfirm`
 
 Consulta el [CHANGELOG](CHANGELOG.md) para el historial completo de cambios.
 
